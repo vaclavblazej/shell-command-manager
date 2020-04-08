@@ -5,8 +5,8 @@
 
 # It IS designed to
 # * make a clear overview of custom-made commands
-# * provide a common interface fot the commands
-# * todo ...
+# * provide a common user interface for the commands
+# * provide a clear way to create a command which works well with this tool
 
 # It IS NOT designed to
 # * provide standard functions or libraries to be used in the commands
@@ -33,8 +33,10 @@ class ArgumentParser(argparse.ArgumentParser):  # bad argument exit code overrid
 
 parser = ArgumentParser(
         description='Manage custom scripts from a central location',
-        # epilog='Confront documentation of this script for examples and usage of various concepts.'
+        # epilog='Confront documentation of this script for examples and usage of various concepts.',
+        add_help=False,
         )
+parser.add_argument('-h', '--help', dest='help', action='store_true', help='show this help message and exit')
 parser.add_argument('--version', dest='version', action='store_true', help='prints out version information')
 parser.add_argument('-q', '--quiet', dest='logging_level', const=QUIET_LEVEL, action='store_const', help='no output will be shown')
 parser.add_argument('-v', '--verbose', dest='logging_level', const=VERBOSE_LEVEL, action='store_const', help='more detailed info')
@@ -45,8 +47,9 @@ script_path = dirname(realpath(__file__))
 working_directory = os.getcwd()
 global_config_folder = join(script_path, 'config.json')
 local_config_folder = join(script_path, 'config_local.json')
-problem_search_location = realpath(join(script_path, '..', 'acm-problems/problems'))
+cmd_script_directory_name = ".cmd"
 version = '0.0.1'
+
 
 # == Main Logic ==================================================================
 
@@ -61,9 +64,15 @@ def main():
     logger.debug('Script folder: ' + uv(script_path))
     logger.debug('Working directory: ' + uv(working_directory))
     logger.debug('Arguments: ' + str(sys.argv))
+    global project
+    project = Project(working_directory)
 
     if len(sys.argv) == 1:
-        parser.print_help(sys.stderr)
+        print_info()
+        return SUCCESSFULL_EXECUTION
+
+    if args.help:
+        print_help()
         return SUCCESSFULL_EXECUTION
 
     if args.version:
@@ -77,10 +86,53 @@ def main():
 def uv(to_print):
     return '"' + str(to_print) + '"'
 
+def print_info():
+    print('todo info')
+
+def print_help():
+    if project.is_present():
+        # if project help is present, then show shorter general help
+        # not showing other projects, but showing project commands with their description
+        project.print_help()
+    else:
+        # show more detailed general help when no project is present
+        # including list of available projects and their short description
+        parser.print_help(sys.stderr)
+
 # == Structure ===================================================================
 
-class SomeClass:
-    pass
+class Project:
+    def __init__(self, search_directory):
+        self.directory = self.find_project_location(search_directory)
+        if self.is_present():
+            self.name = basename(self.directory)
+            self.cmd_script_directory = join(self.directory, cmd_script_directory_name)
+            self.commands_directory = join(self.cmd_script_directory, 'commands')
+            self.completion_script = join(self.cmd_script_directory, 'completion.py')
+            self.help_script = join(self.cmd_script_directory, 'help.py')
+            if exists(self.commands_directory):
+                self.command_files = list(os.listdir(self.commands_directory))
+
+    def find_project_location(self, search_directory):
+        currently_checked_folder = search_directory
+        while True:
+            possible_project_command_folder = join(currently_checked_folder, cmd_script_directory_name)
+            if exists(possible_project_command_folder):
+                return currently_checked_folder
+            if currently_checked_folder == dirname(currently_checked_folder):
+                return None # we are in the root directory
+            currently_checked_folder = dirname(currently_checked_folder)
+
+    def is_present(self):
+        return self.directory is not None
+
+    def print_help(self):
+        if exists(self.help_script):
+            run_command([self.help_script])
+        else:
+            print('You are in project: ' + self.name)
+            print('This project has no explicit help')
+            print('Add it by creating a script in \'{project dir}/.cmd/help.py\' which will be printed instead of this message')
 
 # == Configuration ===============================================================
 
@@ -113,12 +165,21 @@ def load_configuration(config_file_location):
 # == Core Script Logic Chunks ====================================================
 
 def run_command(command_with_arguments):
-    p = subprocess.Popen(command_with_arguments)
     try:
-        p.wait(timeout)
-    except subprocess.TimeoutExpired as ex:
-        p.kill()
-        raise ex
+        os.environ["project_root"] = project.directory
+        p = subprocess.Popen(command_with_arguments)
+        try:
+            # timeout_seconds = 60
+            # p.wait(timeout_seconds)
+            p.wait()
+        except subprocess.TimeoutExpired as ex:
+            p.kill()
+            raise ex
+    except PermissionError:
+        print('Command: '+str(command_with_arguments))
+        print('could not be run, because the file is not executable')
+    except KeyboardInterrupt:
+        print()
 
 # == Main invocation =============================================================
 
@@ -128,3 +189,4 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         print()
         logger.critical('Manually interrupted!')
+
