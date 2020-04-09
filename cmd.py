@@ -19,7 +19,7 @@
 # === TODOS ===
 # * todo ...
 
-import os, sys, argparse, logging, subprocess, enum
+import os, sys, argparse, logging, subprocess, enum, json
 from os.path import *
 
 SUCCESSFULL_EXECUTION = 0
@@ -71,17 +71,21 @@ def main():
     global project
     project = Project(working_directory)
 
-    if len(sys.argv) == 1:
-        print_info()
-        return SUCCESSFULL_EXECUTION
-
-    if args.help:
-        print_help()
-        return SUCCESSFULL_EXECUTION
-
     if args.version:
         print('cmd version ' + version)
         return SUCCESSFULL_EXECUTION
+
+    if args.help or len(sys.argv) == 1:
+        print_help()
+        return SUCCESSFULL_EXECUTION
+
+    global commands
+    commands = {}
+    commands['save']=cmd_save
+    current_command = args.command[0]
+    current_arguments = args.command[1:]
+    if current_command in commands:
+        commands[current_command](current_arguments)
 
     return SUCCESSFULL_EXECUTION
 
@@ -90,18 +94,30 @@ def main():
 def uv(to_print):
     return '"' + str(to_print) + '"'
 
-def print_info():
-    pass
-
 def print_help():
-    if project.is_present():
-        # if project help is present, then show shorter general help
-        # not showing other projects, but showing project commands with their description
-        project.print_help()
+    if is_in_advanced_mode():
+        print('advanced')
     else:
-        # show more detailed general help when no project is present
-        # including list of available projects and their short description
-        parser.print_help(sys.stderr)
+        print('usage: cmd [--version] [--help] [-q] [-v] [-d] command')
+        print('')
+        print('Manage custom commands from a central location')
+        print('')
+        print('command arguments:')
+        print('   save         saves command which is passed as further arguments')
+        print('   find         opens an interactive search for saved commands')
+        print('')
+        print('optional arguments:')
+        print('  --version     prints out version information')
+        print('  -h, --help    show this help message and exit')
+        print('  -q, -v, -d    quiet/verbose/debug output information')
+        print('')
+        print('Enable advanced mode for more features, see documentation')
+
+# == Commands ====================================================================
+
+def cmd_save(arguments):
+    command_to_save = ' '.join(arguments)
+    print('todo save to json file: ' + command_to_save)
 
 # == Structure ===================================================================
 
@@ -138,11 +154,10 @@ class Project:
             print('This project has no explicit help')
             print('Add it by creating a script in \'{project dir}/.cmd/help.py\' which will be printed instead of this message')
 
-class Command:
-    def __init__(self, location):
-        pass
-
 # == Configuration ===============================================================
+
+def is_in_advanced_mode():
+    return 'mode' in conf and conf['mode'] == 'advanced'
 
 def setup_logging():
     logging.addLevelName(VERBOSE_LEVEL, 'VERBOSE')
@@ -158,14 +173,20 @@ def setup_logging():
     logger.addHandler(ch)
 
 def configure():
-    conf.update(load_configuration(global_config_folder))
-    conf.update(load_configuration(local_config_folder))
+    conf.update(load_json_file(global_config_folder))
+    conf.update(load_json_file(local_config_folder))
     return
 
-def load_configuration(config_file_location):
+# == File Manipulation ===========================================================
+
+def save_json_file(json_content_object, file_location):
+    with open('data.json', 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
+
+def load_json_file(file_location):
     try:
-        with open(config_file_location) as config_file:
-            data = json.load(config_file)
+        with open(file_location) as json_file:
+            data = json.load(json_file)
     except FileNotFoundError:
         return dict()
     return data
@@ -173,6 +194,7 @@ def load_configuration(config_file_location):
 # == Core Script Logic Chunks ====================================================
 
 def load_commands(group_name, directory):
+    # load commands from external files
     pass
 
 def run_command(command_with_arguments):
