@@ -7,6 +7,9 @@
 # * make a clear overview of custom-made commands
 # * provide a common user interface for the commands
 # * provide a clear way to create a command which works well with this tool
+# * 'cmd save {cmd}' will save the command to the general commands
+# * 'cmd find' runs interactive search mode, chosen command will be paster to the terminal
+# * basic / advanced mode, basic has only save and find
 
 # It IS NOT designed to
 # * provide standard functions or libraries to be used in the commands
@@ -33,7 +36,7 @@ class ArgumentParser(argparse.ArgumentParser):  # bad argument exit code overrid
 
 parser = ArgumentParser(
         description='Manage custom scripts from a central location',
-        # epilog='Confront documentation of this script for examples and usage of various concepts.',
+        epilog='Run without arguments to get information about available commands',
         add_help=False,
         )
 parser.add_argument('-h', '--help', dest='help', action='store_true', help='show this help message and exit')
@@ -41,6 +44,7 @@ parser.add_argument('--version', dest='version', action='store_true', help='prin
 parser.add_argument('-q', '--quiet', dest='logging_level', const=QUIET_LEVEL, action='store_const', help='no output will be shown')
 parser.add_argument('-v', '--verbose', dest='logging_level', const=VERBOSE_LEVEL, action='store_const', help='more detailed info')
 parser.add_argument('-d', '--debug', dest='logging_level', const=logging.DEBUG, action='store_const', help='very detailed messages of script\'s inner workings')
+parser.add_argument('command', nargs='*', help='command with parameters')
 
 conf = { 'logging_level': logging.INFO, }  # logging is set up before config loads
 script_path = dirname(realpath(__file__))
@@ -87,7 +91,7 @@ def uv(to_print):
     return '"' + str(to_print) + '"'
 
 def print_info():
-    print('todo info')
+    pass
 
 def print_help():
     if project.is_present():
@@ -134,6 +138,10 @@ class Project:
             print('This project has no explicit help')
             print('Add it by creating a script in \'{project dir}/.cmd/help.py\' which will be printed instead of this message')
 
+class Command:
+    def __init__(self, location):
+        pass
+
 # == Configuration ===============================================================
 
 def setup_logging():
@@ -163,6 +171,9 @@ def load_configuration(config_file_location):
     return data
 
 # == Core Script Logic Chunks ====================================================
+
+def load_commands(group_name, directory):
+    pass
 
 def run_command(command_with_arguments):
     try:
