@@ -7,8 +7,7 @@
 # * make a clear overview of custom-made commands
 # * provide a common user interface for the commands
 # * provide a clear way to create a command which works well with this tool
-# * 'cmd save {cmd}' will save the command to the general commands
-# * 'cmd find' runs interactive search mode, chosen command will be paster to the terminal
+# * 'cmd find' runs interactive search mode, chosen command will be executed
 # * basic / advanced mode, basic has only save and find
 
 # It IS NOT designed to
@@ -19,7 +18,7 @@
 # === TODOS ===
 # * todo ...
 
-import os, sys, argparse, logging, subprocess, enum, json
+import os, sys, argparse, logging, subprocess, enum, json, datetime, re
 from os.path import *
 
 SUCCESSFULL_EXECUTION = 0
@@ -53,6 +52,7 @@ global_config_folder = join(script_path, 'config.json')
 local_config_folder = join(script_path, 'config_local.json')
 cmd_script_directory_name = ".cmd"
 version = '0.0.1'
+simple_commands_file_location = join(script_path, 'commands.json')
 
 
 # == Main Logic ==================================================================
@@ -82,6 +82,7 @@ def main():
     global commands
     commands = {}
     commands['save']=cmd_save
+    commands['find']=cmd_find
     current_command = args.command[0]
     current_arguments = args.command[1:]
     if current_command in commands:
@@ -96,7 +97,7 @@ def uv(to_print):
 
 def print_help():
     if is_in_advanced_mode():
-        print('advanced')
+        print('todo advanced mode help')
     else:
         print('usage: cmd [--version] [--help] [-q] [-v] [-d] command')
         print('')
@@ -113,13 +114,101 @@ def print_help():
         print('')
         print('Enable advanced mode for more features, see documentation')
 
+def search_and_format(pattern:str, text:str) -> (int, str):
+    if text is None:
+        return (0, "")
+    occurences = list(re.finditer(pattern, text))
+    color_format = '\033[{0}m'
+    color_str = color_format.format(31) # red color
+    reset_str = color_format.format(0)
+    last_match = 0
+    formatted_text = ''
+    for match in occurences:
+        start, end = match.span()
+        formatted_text += text[last_match: start]
+        formatted_text += color_str
+        formatted_text += text[start: end]
+        formatted_text += reset_str
+        last_match = end
+    formatted_text += text[last_match:]
+    print(formatted_text)
+
+    return (len(occurences), formatted_text)
+
 # == Commands ====================================================================
 
 def cmd_save(arguments):
     command_to_save = ' '.join(arguments)
-    print('todo save to json file: ' + command_to_save)
+    if command_to_save == '':
+        command_to_save = input('The command to be saved:')
+    if not exists(simple_commands_file_location):
+        save_json_file([], simple_commands_file_location)
+    description=input('One-line description (empty to skip):')
+    commands_db = load_commands()
+    commands_db += [Command(command_to_save, description)]
+    save_json_file(commands_db, simple_commands_file_location)
+
+def cmd_find(arguments):
+    commands_db = load_commands()
+    index = 1
+    selected_commands = []
+    try:
+        while True:
+            print((40 * '='))
+            query = input('query $ ')
+            try:
+                idx = int(query)
+                run_string_command(selected_commands[idx-1].command)
+                return
+            except ValueError as e:
+                pass
+            for command in commands_db:
+                result = command.find(query)
+                if result is not None:
+                    selected_commands += [command]
+                    print('--- ' + str(index) + ' ' + (30 * '-'))
+                    print(result, end='')
+                    index = index+1
+    except EOFError as e:
+        print()
+
+def load_commands():
+    commands_db = load_json_file(simple_commands_file_location)
+    return list(map(Command.from_json, commands_db))
 
 # == Structure ===================================================================
+
+class Command:
+    def __init__(self, command:str, description:str = None, alias:str = None, creation_time:str = None):
+        self.command = command
+        if description=='': description = None
+        self.description = description
+        if alias=='': alias = None
+        self.alias = alias
+        if creation_time is None: creation_time = str(datetime.datetime.now())
+        self.creation_time = creation_time
+
+    @classmethod
+    def from_json(cls, data):
+        return cls(**data)
+
+    def info_string(self):
+        ans = ''
+        ans += 'com: ' + self.command + '\n'
+        if self.alias is not None:
+            ans += 'ali: ' + self.alias + '\n'
+        if self.description is not None:
+            ans += 'des: ' + self.description + '\n'
+        if self.creation_time is not None:
+            ans += 'ctm: ' + self.creation_time + '\n'
+        return ans
+
+    def find(self, query):
+        if len(list(re.finditer(query, self.command))) != 0:
+            return self.info_string()
+        if self.description is not None and len(list(re.finditer(query, self.description))) != 0:
+            return self.info_string()
+        return None
 
 class Project:
     def __init__(self, search_directory):
@@ -148,7 +237,7 @@ class Project:
 
     def print_help(self):
         if exists(self.help_script):
-            run_command([self.help_script])
+            run_script([self.help_script])
         else:
             print('You are in project: ' + self.name)
             print('This project has no explicit help')
@@ -180,8 +269,10 @@ def configure():
 # == File Manipulation ===========================================================
 
 def save_json_file(json_content_object, file_location):
-    with open('data.json', 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
+    file_string = json.dumps(json_content_object, default=lambda o: o.__dict__, ensure_ascii=False, indent=4)
+    # fail-safe when JSON-serialization fails
+    with open(file_location, 'w', encoding='utf-8') as f:
+        f.write(file_string)
 
 def load_json_file(file_location):
     try:
@@ -193,11 +284,11 @@ def load_json_file(file_location):
 
 # == Core Script Logic Chunks ====================================================
 
-def load_commands(group_name, directory):
-    # load commands from external files
-    pass
+def run_string_command(command_string):
+    print('command:',command_string)
+    os.system(command_string)
 
-def run_command(command_with_arguments):
+def run_script(command_with_arguments):
     try:
         os.environ["project_root"] = project.directory
         p = subprocess.Popen(command_with_arguments)
