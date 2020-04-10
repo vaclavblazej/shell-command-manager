@@ -19,6 +19,7 @@
 # * todo ...
 
 import os, sys, argparse, logging, subprocess, enum, json, datetime, re
+import readline # enables arrows in the input() method
 from os.path import *
 
 SUCCESSFULL_EXECUTION = 0
@@ -43,7 +44,7 @@ parser.add_argument('--version', dest='version', action='store_true', help='prin
 parser.add_argument('-q', '--quiet', dest='logging_level', const=QUIET_LEVEL, action='store_const', help='no output will be shown')
 parser.add_argument('-v', '--verbose', dest='logging_level', const=VERBOSE_LEVEL, action='store_const', help='more detailed info')
 parser.add_argument('-d', '--debug', dest='logging_level', const=logging.DEBUG, action='store_const', help='very detailed messages of script\'s inner workings')
-parser.add_argument('command', nargs='*', help='command with parameters')
+parser.add_argument('command', nargs=argparse.REMAINDER, help='command with parameters')
 
 conf = { 'logging_level': logging.INFO, }  # logging is set up before config loads
 script_path = dirname(realpath(__file__))
@@ -131,8 +132,6 @@ def search_and_format(pattern:str, text:str) -> (int, str):
         formatted_text += reset_str
         last_match = end
     formatted_text += text[last_match:]
-    print(formatted_text)
-
     return (len(occurences), formatted_text)
 
 # == Commands ====================================================================
@@ -143,14 +142,13 @@ def cmd_save(arguments):
         command_to_save = input('The command to be saved:')
     if not exists(simple_commands_file_location):
         save_json_file([], simple_commands_file_location)
-    description=input('One-line description (empty to skip):')
+    description=input('Short description (empty to skip):')
     commands_db = load_commands()
     commands_db += [Command(command_to_save, description)]
     save_json_file(commands_db, simple_commands_file_location)
 
 def cmd_find(arguments):
     commands_db = load_commands()
-    index = 1
     selected_commands = []
     try:
         while True:
@@ -162,6 +160,7 @@ def cmd_find(arguments):
                 return
             except ValueError as e:
                 pass
+            index = 1
             for command in commands_db:
                 result = command.find(query)
                 if result is not None:
@@ -204,11 +203,22 @@ class Command:
         return ans
 
     def find(self, query):
-        if len(list(re.finditer(query, self.command))) != 0:
-            return self.info_string()
-        if self.description is not None and len(list(re.finditer(query, self.description))) != 0:
-            return self.info_string()
-        return None
+        to_check = [
+                {'name':'ali','field':self.alias},
+                {'name':'cmd','field':self.command},
+                {'name':'des','field':self.description},
+                {'name':'ctm','field':self.creation_time},
+                ]
+        total_occurences = 0
+        total_formatted_output = ''
+        for check in to_check:
+            (occurences, formatted_output) = search_and_format(query, check['field'])
+            total_occurences += occurences
+            total_formatted_output += check['name'] + ': ' + formatted_output + '\n'
+        if total_occurences != 0:
+            return total_formatted_output
+        else:
+            return None
 
 class Project:
     def __init__(self, search_directory):
