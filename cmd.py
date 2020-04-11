@@ -7,16 +7,17 @@
 # * make a clear overview of custom-made commands
 # * provide a common user interface for the commands
 # * provide a clear way to create a command which works well with this tool
-# * 'cmd find' runs interactive search mode, chosen command will be executed
 # * basic / advanced mode, basic has only save and find
 
 # It IS NOT designed to
 # * provide standard functions or libraries to be used in the commands
 # * check correctness or analyse the commands
-# * todo ...
 
 # === TODOS ===
-# * todo ...
+# * serach via argument
+# * copy the command into command line instead of executing it
+# * sort results depending on relevancy
+# * improve search (not only one whole regex)
 
 import os, sys, argparse, logging, subprocess, enum, json, datetime, re
 import readline # enables arrows in the input() method
@@ -100,11 +101,11 @@ def print_help():
     if is_in_advanced_mode():
         print('todo advanced mode help')
     else:
-        print('usage: cmd [--version] [--help] [-q] [-v] [-d] command')
+        print('usage: cmd [--version] [--help] [-q] [-v] [-d] <command> [<args>]')
         print('')
         print('Manage custom commands from a central location')
         print('')
-        print('command arguments:')
+        print('commands:')
         print('   save         saves command which is passed as further arguments')
         print('   find         opens an interactive search for saved commands')
         print('')
@@ -118,6 +119,7 @@ def print_help():
 def search_and_format(pattern:str, text:str) -> (int, str):
     if text is None:
         return (0, "")
+    priority = 0
     occurences = list(re.finditer(pattern, text))
     color_format = '\033[{0}m'
     color_str = color_format.format(31) # red color
@@ -132,14 +134,20 @@ def search_and_format(pattern:str, text:str) -> (int, str):
         formatted_text += reset_str
         last_match = end
     formatted_text += text[last_match:]
-    return (len(occurences), formatted_text)
+    priority += len(occurences)
+    return (priority, formatted_text)
 
 # == Commands ====================================================================
 
 def cmd_save(arguments):
     command_to_save = ' '.join(arguments)
     if command_to_save == '':
-        command_to_save = input('The command to be saved:')
+        command_to_save = input('The command to be saved (enter to retrieve last cmd):')
+        if command_to_save == '':
+            last_command_in_binary = subprocess.check_output(['tail','-1',join(os.environ['HOME'],'.bash_history')])
+            command_to_save = last_command_in_binary.decode("utf-8")
+    print(command_to_save)
+
     if not exists(simple_commands_file_location):
         save_json_file([], simple_commands_file_location)
     description=input('Short description (empty to skip):')
@@ -204,7 +212,7 @@ class Command:
 
     def find(self, query):
         to_check = [
-                {'name':'ali','field':self.alias},
+                # {'name':'ali','field':self.alias},
                 {'name':'cmd','field':self.command},
                 {'name':'des','field':self.description},
                 {'name':'ctm','field':self.creation_time},
@@ -212,8 +220,8 @@ class Command:
         total_occurences = 0
         total_formatted_output = ''
         for check in to_check:
-            (occurences, formatted_output) = search_and_format(query, check['field'])
-            total_occurences += occurences
+            (priority, formatted_output) = search_and_format(query, check['field'])
+            total_occurences += priority
             total_formatted_output += check['name'] + ': ' + formatted_output + '\n'
         if total_occurences != 0:
             return total_formatted_output
@@ -295,7 +303,7 @@ def load_json_file(file_location):
 # == Core Script Logic Chunks ====================================================
 
 def run_string_command(command_string):
-    print('command:',command_string)
+    print('run command:',command_string)
     os.system(command_string)
 
 def run_script(command_with_arguments):
@@ -310,7 +318,7 @@ def run_script(command_with_arguments):
             p.kill()
             raise ex
     except PermissionError:
-        print('Command: '+str(command_with_arguments))
+        print('Script: '+str(command_with_arguments))
         print('could not be run, because the file is not executable')
     except KeyboardInterrupt:
         print()
