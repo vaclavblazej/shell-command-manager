@@ -14,10 +14,10 @@
 # * check correctness or analyse the commands
 
 # === TODOS ===
-# * serach via argument
-# * copy the command into command line instead of executing it
-# * sort results depending on relevancy
 # * improve search (not only one whole regex)
+# * print text into proper logging level
+# * make help generated, not hardcoded
+# * (seems hard) copy the command into command line instead of executing it
 
 import os, sys, argparse, logging, subprocess, enum, json, datetime, re
 import readline # enables arrows in the input() method
@@ -55,6 +55,7 @@ local_config_folder = join(script_path, 'config_local.json')
 cmd_script_directory_name = ".cmd"
 version = '0.0.1'
 simple_commands_file_location = join(script_path, 'commands.json')
+time_format = '%Y-%m-%d %H:%M:%S'
 
 
 # == Main Logic ==================================================================
@@ -77,9 +78,14 @@ def main():
         print('cmd version ' + version)
         return SUCCESSFULL_EXECUTION
 
-    if args.help or len(sys.argv) == 1:
+    if args.help:
         print_help()
         return SUCCESSFULL_EXECUTION
+
+    if len(args.command) == 0:
+        logger.warning('No command given')
+        print_help()
+        return USER_ERROR
 
     global commands
     commands = {}
@@ -99,7 +105,20 @@ def uv(to_print):
 
 def print_help():
     if is_in_advanced_mode():
-        print('todo advanced mode help')
+        print('usage: cmd [--version] [--help] [-q] [-v] [-d] <command> [<args>]')
+        print('')
+        print('Manage custom commands from a central location')
+        print('')
+        print('commands:')
+        print('   save         saves command which is passed as further arguments')
+        print('   find         opens an interactive search for saved commands')
+        print('')
+        print('optional arguments:')
+        print('  --version     prints out version information')
+        print('  --help        show this help message and exit')
+        print('  -q, -v, -d    quiet/verbose/debug output information')
+        print('')
+        print('Enable advanced mode for more features, see documentation')
     else:
         print('usage: cmd [--version] [--help] [-q] [-v] [-d] <command> [<args>]')
         print('')
@@ -111,7 +130,7 @@ def print_help():
         print('')
         print('optional arguments:')
         print('  --version     prints out version information')
-        print('  -h, --help    show this help message and exit')
+        print('  --help        show this help message and exit')
         print('  -q, -v, -d    quiet/verbose/debug output information')
         print('')
         print('Enable advanced mode for more features, see documentation')
@@ -137,20 +156,28 @@ def search_and_format(pattern:str, text:str) -> (int, str):
     priority += len(occurences)
     return (priority, formatted_text)
 
+# https://stackoverflow.com/questions/8505163/is-it-possible-to-prefill-a-input-in-python-3s-command-line-interface
+def input_with_prefill(prompt, text):
+    def hook():
+        readline.insert_text(text)
+        readline.redisplay()
+    readline.set_pre_input_hook(hook)
+    result = input(prompt)
+    readline.set_pre_input_hook()
+    return result
+
 # == Commands ====================================================================
 
 def cmd_save(arguments):
     command_to_save = ' '.join(arguments)
     if command_to_save == '':
-        command_to_save = input('The command to be saved (enter to retrieve last cmd):')
-        if command_to_save == '':
-            last_command_in_binary = subprocess.check_output(['tail','-1',join(os.environ['HOME'],'.bash_history')])
-            command_to_save = last_command_in_binary.decode("utf-8")
-    print(command_to_save)
+        history_command_in_binary = subprocess.check_output(['tail','-1',join(os.environ['HOME'],'.bash_history')])
+        history_command = history_command_in_binary[:-1].decode("utf-8")
+        command_to_save = input_with_prefill('The command to be saved: ', history_command)
 
     if not exists(simple_commands_file_location):
         save_json_file([], simple_commands_file_location)
-    description=input('Short description (empty to skip):')
+    description=input('Short description: ')
     commands_db = load_commands()
     commands_db += [Command(command_to_save, description)]
     save_json_file(commands_db, simple_commands_file_location)
@@ -161,21 +188,38 @@ def cmd_find(arguments):
     try:
         while True:
             print((40 * '='))
-            query = input('query $ ')
+            if len(arguments) != 0:
+                query = ' '.join(arguments)
+                arguments = []
+            else:
+                query = input('query $ ')
             try:
                 idx = int(query)
-                run_string_command(selected_commands[idx-1].command)
+                if idx not in range(1,len(selected_commands)+1):
+                    print('invalid index')
+                    continue
+                command_string = selected_commands[idx-1].command
+                run_string_command(command_string)
                 return
             except ValueError as e:
                 pass
             index = 1
+            results = []
             for command in commands_db:
                 result = command.find(query)
                 if result is not None:
-                    selected_commands += [command]
-                    print('--- ' + str(index) + ' ' + (30 * '-'))
-                    print(result, end='')
-                    index = index+1
+                    (priority,formatted_text) = result
+                    results += [(priority,formatted_text,command)]
+            results = sorted(results, reverse=True) # by priority
+            selected_commands = []
+            for result in results:
+                (_, text, command) = result
+                selected_commands += [command]
+                print('--- ' + str(index) + ' ' + (30 * '-'))
+                print(text, end='')
+                index = index+1
+            if len(results)==0:
+                print('No results found')
     except EOFError as e:
         print()
 
@@ -192,7 +236,7 @@ class Command:
         self.description = description
         if alias=='': alias = None
         self.alias = alias
-        if creation_time is None: creation_time = str(datetime.datetime.now())
+        if creation_time is None: creation_time = str(datetime.datetime.now().strftime(time_format))
         self.creation_time = creation_time
 
     @classmethod
@@ -215,16 +259,16 @@ class Command:
                 # {'name':'ali','field':self.alias},
                 {'name':'cmd','field':self.command},
                 {'name':'des','field':self.description},
-                {'name':'ctm','field':self.creation_time},
+                # {'name':'ctm','field':self.creation_time},
                 ]
-        total_occurences = 0
-        total_formatted_output = ''
+        total_priority = 0
+        total_formatted_output = ""
         for check in to_check:
             (priority, formatted_output) = search_and_format(query, check['field'])
-            total_occurences += priority
+            total_priority += priority
             total_formatted_output += check['name'] + ': ' + formatted_output + '\n'
-        if total_occurences != 0:
-            return total_formatted_output
+        if total_priority != 0:
+            return (total_priority,total_formatted_output)
         else:
             return None
 
