@@ -6,14 +6,15 @@
 # It IS designed to
 # * make a clear overview of custom-made commands
 # * provide a common user interface for the commands
-# * provide a clear way to create a command which works well with this tool
 # * basic / advanced mode, basic has only save and find
+# * provide a clear way to create a scripts which work well with this tool
 
 # It IS NOT designed to
 # * provide standard functions or libraries to be used in the commands
 # * check correctness or analyse the commands
 
 # === TODOS ===
+# ? scripts.json will holds commands situated in files, similar to commands.json
 # * improve search (not only one whole regex)
 # * print text into proper logging level
 # * make help generated, not hardcoded
