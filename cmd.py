@@ -96,6 +96,10 @@ def main():
     current_arguments = args.command[1:]
     if current_command in commands:
         commands[current_command](current_arguments)
+    else:
+        logger.warning('The given command ' + uv(current_command) + ' was not found')
+        print_help()
+        return USER_ERROR
 
     return SUCCESSFULL_EXECUTION
 
