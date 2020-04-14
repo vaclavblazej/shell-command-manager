@@ -120,9 +120,9 @@ def print_help():
         help_str += '   find         opens an interactive search for saved commands\n'
         help_str += '\n'
         help_str += 'optional arguments:\n'
-        help_str += '  --version     prints out version information\n'
-        help_str += '  --help        show this help message and exit\n'
-        help_str += '  -q, -v, -d    quiet/verbose/debug output information'
+        help_str += '   --version    prints out version information\n'
+        help_str += '   --help       show this help message and exit\n'
+        help_str += '   -q, -v, -d   quiet/verbose/debug output information'
     else:
         help_str += 'usage: cmd [--version] [--help] [-q] [-v] [-d] <command> [<args>]\n'
         help_str += '\n'
@@ -133,16 +133,16 @@ def print_help():
         help_str += '   find         opens an interactive search for saved commands\n'
         help_str += '\n'
         help_str += 'optional arguments:\n'
-        help_str += '  --version     prints out version information\n'
-        help_str += '  --help        show this help message and exit\n'
-        help_str += '  -q, -v, -d    quiet/verbose/debug output information\n'
+        help_str += '   --version    prints out version information\n'
+        help_str += '   --help       show this help message and exit\n'
+        help_str += '   -q, -v, -d   quiet/verbose/debug output information\n'
         help_str += '\n'
         help_str += 'Enable advanced mode for more features, see documentation'
     print_str(help_str)
 
-def print_str(text, level=TEXT_LEVEL):
+def print_str(text, level=TEXT_LEVEL, end='\n'):
     if level >= logger.level:
-        print(text)
+        print(text, end=end)
 
 def search_and_format(pattern:str, text:str) -> (int, str):
     if text is None:
@@ -356,7 +356,7 @@ def load_json_file(file_location):
 # == Core Script Logic Chunks ====================================================
 
 def run_string_command(command_string):
-    print_str('run command:',command_string)
+    print_str('run command: ' + command_string)
     os.system(command_string)
 
 def run_script(command_with_arguments):
@@ -371,7 +371,7 @@ def run_script(command_with_arguments):
             p.kill()
             raise ex
     except PermissionError:
-        print_str('Script: '+str(command_with_arguments))
+        print_str('Script: ' + str(command_with_arguments))
         print_str('could not be run, because the file is not executable')
     except KeyboardInterrupt:
         print_str()
