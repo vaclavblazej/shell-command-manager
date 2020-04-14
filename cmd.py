@@ -14,10 +14,12 @@
 # * check correctness or analyse the commands
 
 # === TODOS ===
+# * load current project scripts
 # ? scripts.json will holds commands situated in files, similar to commands.json
 # * improve search (not only one whole regex)
 # * make help generated, not hardcoded
 # * (seems hard) copy the command into command line instead of executing it
+# ? add configuration to the project-specific folder
 
 import os, sys, argparse, logging, subprocess, enum, json, datetime, re
 import readline # enables arrows in the input() method
@@ -79,6 +81,16 @@ def main():
         print_str('cmd version ' + version)
         return SUCCESSFULL_EXECUTION
 
+    global commands
+    commands = {}
+    commands['save']=Command(cmd_save)
+    commands['find']=Command(cmd_find)
+    commands_db = load_commands()
+    for command in commands_db:
+        call_fun = lambda cmd : (lambda args : run_string_command(cmd.command)) # todo add arguments ?
+        if command.alias is not None:
+            commands[command.alias]=Command(call_fun(command))
+
     if args.help:
         print_help()
         return SUCCESSFULL_EXECUTION
@@ -88,14 +100,10 @@ def main():
         print_help()
         return USER_ERROR
 
-    global commands
-    commands = {}
-    commands['save']=cmd_save
-    commands['find']=cmd_find
     current_command = args.command[0]
     current_arguments = args.command[1:]
     if current_command in commands:
-        commands[current_command](current_arguments)
+        commands[current_command].execute(current_arguments)
     else:
         logger.warning('The given command ' + uv(current_command) + ' was not found')
         print_help()
@@ -118,6 +126,11 @@ def print_help():
         help_str += 'commands:\n'
         help_str += '   save         saves command which is passed as further arguments\n'
         help_str += '   find         opens an interactive search for saved commands\n'
+        help_str += '\n'
+        help_str += 'aliases:\n'
+        for command in commands:
+            sstr = '   {0}\t{1}\n'
+            help_str += sstr.format(command, commands[command].description)
         help_str += '\n'
         help_str += 'optional arguments:\n'
         help_str += '   --version    prints out version information\n'
@@ -148,7 +161,7 @@ def search_and_format(pattern:str, text:str) -> (int, str):
     if text is None:
         return (0, "")
     priority = 0
-    occurences = list(re.finditer(pattern, text))
+    occurences = list(re.finditer(pattern, text, re.I))
     color_format = '\033[{0}m'
     color_str = color_format.format(31) # red color
     reset_str = color_format.format(0)
@@ -209,8 +222,7 @@ def cmd_find(arguments):
                 if idx not in range(1,len(selected_commands)+1):
                     print_str('invalid index')
                     continue
-                command_string = selected_commands[idx-1].command
-                run_string_command(command_string)
+                selected_commands[idx-1].execute() # todo add arguments ?
                 return
             except ValueError as e:
                 pass
@@ -247,7 +259,8 @@ def load_commands():
 # == Structure ===================================================================
 
 class Command:
-    def __init__(self, command:str, description:str = None, alias:str = None, creation_time:str = None):
+    # command can be either str, or a function (str[]) -> None
+    def __init__(self, command:any, description:str = None, alias:str = None, creation_time:str = None):
         self.command = command
         if description=='': description = None
         self.description = description
@@ -288,6 +301,12 @@ class Command:
             return (total_priority,total_formatted_output)
         else:
             return None
+
+    def execute(self, args=[]):
+        if type(self.command) is str:
+            run_string_command(self.command)
+        else:
+            self.command(args)
 
 class Project:
     def __init__(self, search_directory):
