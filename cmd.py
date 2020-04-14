@@ -192,6 +192,8 @@ def cmd_save(arguments):
     save_json_file(commands_db, simple_commands_file_location)
 
 def cmd_find(arguments):
+    max_cmd_count = 4
+    max_cmd_count_slack = 2
     commands_db = load_commands()
     selected_commands = []
     try:
@@ -219,16 +221,22 @@ def cmd_find(arguments):
                 if result is not None:
                     (priority,formatted_text) = result
                     results += [(priority,formatted_text,command)]
+            total_results_count = len(results)
+            if total_results_count==0:
+                print_str('No results found')
             results = sorted(results, reverse=True) # by priority
             selected_commands = []
-            for result in results:
+            cmd_showing_count = max_cmd_count
+            if total_results_count <= cmd_showing_count + max_cmd_count_slack:
+                cmd_showing_count += max_cmd_count_slack
+            for result in results[:cmd_showing_count]:
                 (_, text, command) = result
                 selected_commands += [command]
                 print_str('--- ' + str(index) + ' ' + (30 * '-'))
                 print_str(text, end='')
                 index = index+1
-            if len(results)==0:
-                print_str('No results found')
+            if total_results_count > cmd_showing_count:
+                print_str('\nand ' + str(total_results_count-cmd_showing_count) + ' other commands')
     except EOFError as e:
         print_str()
 
