@@ -16,7 +16,6 @@
 # === TODOS ===
 # ? scripts.json will holds commands situated in files, similar to commands.json
 # * improve search (not only one whole regex)
-# * print text into proper logging level
 # * make help generated, not hardcoded
 # * (seems hard) copy the command into command line instead of executing it
 
@@ -29,6 +28,7 @@ USER_ERROR = 1 # argument format is fine, but content is wrong
 INVALID_ARGUMENT = 129 # argument format is wrong
 
 VERBOSE_LEVEL = 15
+TEXT_LEVEL = 30
 QUIET_LEVEL = 60
 
 class ArgumentParser(argparse.ArgumentParser):  # bad argument exit code override
@@ -76,7 +76,7 @@ def main():
     project = Project(working_directory)
 
     if args.version:
-        print('cmd version ' + version)
+        print_str('cmd version ' + version)
         return SUCCESSFULL_EXECUTION
 
     if args.help:
@@ -109,36 +109,40 @@ def uv(to_print):
     return '"' + str(to_print) + '"'
 
 def print_help():
+    help_str = ''
     if is_in_advanced_mode():
-        print('usage: cmd [--version] [--help] [-q] [-v] [-d] <command> [<args>]')
-        print('')
-        print('Manage custom commands from a central location')
-        print('')
-        print('commands:')
-        print('   save         saves command which is passed as further arguments')
-        print('   find         opens an interactive search for saved commands')
-        print('')
-        print('optional arguments:')
-        print('  --version     prints out version information')
-        print('  --help        show this help message and exit')
-        print('  -q, -v, -d    quiet/verbose/debug output information')
-        print('')
-        print('Enable advanced mode for more features, see documentation')
+        help_str += 'usage: cmd [--version] [--help] [-q] [-v] [-d] <command> [<args>]\n'
+        help_str += '\n'
+        help_str += 'Manage custom commands from a central location\n'
+        help_str += '\n'
+        help_str += 'commands:\n'
+        help_str += '   save         saves command which is passed as further arguments\n'
+        help_str += '   find         opens an interactive search for saved commands\n'
+        help_str += '\n'
+        help_str += 'optional arguments:\n'
+        help_str += '  --version     prints out version information\n'
+        help_str += '  --help        show this help message and exit\n'
+        help_str += '  -q, -v, -d    quiet/verbose/debug output information'
     else:
-        print('usage: cmd [--version] [--help] [-q] [-v] [-d] <command> [<args>]')
-        print('')
-        print('Manage custom commands from a central location')
-        print('')
-        print('commands:')
-        print('   save         saves command which is passed as further arguments')
-        print('   find         opens an interactive search for saved commands')
-        print('')
-        print('optional arguments:')
-        print('  --version     prints out version information')
-        print('  --help        show this help message and exit')
-        print('  -q, -v, -d    quiet/verbose/debug output information')
-        print('')
-        print('Enable advanced mode for more features, see documentation')
+        help_str += 'usage: cmd [--version] [--help] [-q] [-v] [-d] <command> [<args>]\n'
+        help_str += '\n'
+        help_str += 'Manage custom commands from a central location\n'
+        help_str += '\n'
+        help_str += 'commands:\n'
+        help_str += '   save         saves command which is passed as further arguments\n'
+        help_str += '   find         opens an interactive search for saved commands\n'
+        help_str += '\n'
+        help_str += 'optional arguments:\n'
+        help_str += '  --version     prints out version information\n'
+        help_str += '  --help        show this help message and exit\n'
+        help_str += '  -q, -v, -d    quiet/verbose/debug output information\n'
+        help_str += '\n'
+        help_str += 'Enable advanced mode for more features, see documentation'
+    print_str(help_str)
+
+def print_str(text, level=TEXT_LEVEL):
+    if level >= logger.level:
+        print(text)
 
 def search_and_format(pattern:str, text:str) -> (int, str):
     if text is None:
@@ -192,7 +196,7 @@ def cmd_find(arguments):
     selected_commands = []
     try:
         while True:
-            print((40 * '='))
+            print_str((40 * '='))
             if len(arguments) != 0:
                 query = ' '.join(arguments)
                 arguments = []
@@ -201,7 +205,7 @@ def cmd_find(arguments):
             try:
                 idx = int(query)
                 if idx not in range(1,len(selected_commands)+1):
-                    print('invalid index')
+                    print_str('invalid index')
                     continue
                 command_string = selected_commands[idx-1].command
                 run_string_command(command_string)
@@ -220,13 +224,13 @@ def cmd_find(arguments):
             for result in results:
                 (_, text, command) = result
                 selected_commands += [command]
-                print('--- ' + str(index) + ' ' + (30 * '-'))
-                print(text, end='')
+                print_str('--- ' + str(index) + ' ' + (30 * '-'))
+                print_str(text, end='')
                 index = index+1
             if len(results)==0:
-                print('No results found')
+                print_str('No results found')
     except EOFError as e:
-        print()
+        print_str()
 
 def load_commands():
     commands_db = load_json_file(simple_commands_file_location)
@@ -306,9 +310,9 @@ class Project:
         if exists(self.help_script):
             run_script([self.help_script])
         else:
-            print('You are in project: ' + self.name)
-            print('This project has no explicit help')
-            print('Add it by creating a script in \'{project dir}/.cmd/help.py\' which will be printed instead of this message')
+            print_str('You are in project: ' + self.name)
+            print_str('This project has no explicit help')
+            print_str('Add it by creating a script in \'{project dir}/.cmd/help.py\' which will be printed instead of this message')
 
 # == Configuration ===============================================================
 
@@ -352,7 +356,7 @@ def load_json_file(file_location):
 # == Core Script Logic Chunks ====================================================
 
 def run_string_command(command_string):
-    print('run command:',command_string)
+    print_str('run command:',command_string)
     os.system(command_string)
 
 def run_script(command_with_arguments):
@@ -367,10 +371,10 @@ def run_script(command_with_arguments):
             p.kill()
             raise ex
     except PermissionError:
-        print('Script: '+str(command_with_arguments))
-        print('could not be run, because the file is not executable')
+        print_str('Script: '+str(command_with_arguments))
+        print_str('could not be run, because the file is not executable')
     except KeyboardInterrupt:
-        print()
+        print_str()
 
 # == Main invocation =============================================================
 
@@ -378,6 +382,6 @@ if __name__ == '__main__':
     try:
         sys.exit(main())
     except KeyboardInterrupt:
-        print()
+        print_str()
         logger.critical('Manually interrupted!')
 
