@@ -86,10 +86,13 @@ def main():
     commands['save']=Command(cmd_save)
     commands['find']=Command(cmd_find)
     commands_db = load_commands()
+
+    global aliases
+    aliases = {}
     for command in commands_db:
         call_fun = lambda cmd : (lambda args : run_string_command(cmd.command)) # todo add arguments ?
         if command.alias is not None:
-            commands[command.alias]=Command(call_fun(command))
+            aliases[command.alias]=Command(call_fun(command), command.description)
 
     if args.help:
         print_help()
@@ -104,6 +107,8 @@ def main():
     current_arguments = args.command[1:]
     if current_command in commands:
         commands[current_command].execute(current_arguments)
+    elif current_command in aliases:
+        aliases[current_command].execute(current_arguments)
     else:
         logger.warning('The given command ' + uv(current_command) + ' was not found')
         print_help()
@@ -119,7 +124,7 @@ def uv(to_print):
 def print_help():
     help_str = ''
     if is_in_advanced_mode():
-        help_str += 'usage: cmd [--version] [--help] [-q] [-v] [-d] <command> [<args>]\n'
+        help_str += 'usage: cmd [--version] [--help] [-q|-v|-d] <command> [<args>]\n'
         help_str += '\n'
         help_str += 'Manage custom commands from a central location\n'
         help_str += '\n'
@@ -127,17 +132,16 @@ def print_help():
         help_str += '   save         saves command which is passed as further arguments\n'
         help_str += '   find         opens an interactive search for saved commands\n'
         help_str += '\n'
-        help_str += 'aliases:\n'
-        for command in commands:
-            sstr = '   {0}\t{1}\n'
-            help_str += sstr.format(command, commands[command].description)
+        help_str += 'custom commands:\n'
+        for command in aliases:
+            help_str += '   {0}\t{1}\n'.format(command, aliases[command].description)
         help_str += '\n'
         help_str += 'optional arguments:\n'
         help_str += '   --version    prints out version information\n'
         help_str += '   --help       show this help message and exit\n'
         help_str += '   -q, -v, -d   quiet/verbose/debug output information'
     else:
-        help_str += 'usage: cmd [--version] [--help] [-q] [-v] [-d] <command> [<args>]\n'
+        help_str += 'usage: cmd [--version] [--help] [-q|-v|-d] <command> [<args>]\n'
         help_str += '\n'
         help_str += 'Manage custom commands from a central location\n'
         help_str += '\n'
