@@ -168,7 +168,7 @@ def search_and_format(pattern:str, text:str) -> (int, str):
     occurences = list(re.finditer(pattern, text, re.I))
     color_format = '\033[{0}m'
     color_str = color_format.format(31) # red color
-    reset_str = color_format.format(0)
+    reset_str = color_format.format(0) # default color
     last_match = 0
     formatted_text = ''
     for match in occurences:
@@ -197,7 +197,8 @@ def input_with_prefill(prompt, text):
 def cmd_save(arguments):
     command_to_save = ' '.join(arguments)
     if command_to_save == '':
-        history_command_in_binary = subprocess.check_output(['tail','-1',join(os.environ['HOME'],'.bash_history')])
+        history_file_location = join(os.environ['HOME'],conf['history_home'])
+        history_command_in_binary = subprocess.check_output(['tail','-1',history_file_location])
         history_command = history_command_in_binary[:-1].decode("utf-8")
         command_to_save = input_with_prefill('The command to be saved: ', history_command)
 
@@ -292,7 +293,7 @@ class Command:
             (priority, formatted_output) = search_and_format(query, check['field'])
             total_priority += priority
             if check['name'] == 'cmd' and self.command_hidden:
-                formatted_output = ' *** command is hidden ***'
+                formatted_output = ' *** command is hidden ***' # todo improve hidden command interface
             total_formatted_output += check['name'] + ': ' + formatted_output + '\n'
         if total_priority != 0:
             return (total_priority,total_formatted_output)
@@ -339,7 +340,7 @@ class Project:
         else:
             print_str('You are in project: ' + self.name)
             print_str('This project has no explicit help')
-            print_str('Add it by creating a script in \'{project dir}/.cmd/help.py\' which will be printed instead of this message')
+            print_str('Add it by creating a script in \'{project dir}/.cmd/help.py\' which will be executed (to pring help) instead of this message')
 
 # == Configuration ===============================================================
 
@@ -367,8 +368,8 @@ def configure():
 # == File Manipulation ===========================================================
 
 def save_json_file(json_content_object, file_location):
-    file_string = json.dumps(json_content_object, default=lambda o: o.__dict__, ensure_ascii=False, indent=4)
     # fail-safe when JSON-serialization fails
+    file_string = json.dumps(json_content_object, default=lambda o: o.__dict__, ensure_ascii=False, indent=4)
     with open(file_location, 'w', encoding='utf-8') as f:
         f.write(file_string)
 
@@ -382,17 +383,11 @@ def load_json_file(file_location):
 
 # == Core Script Logic Chunks ====================================================
 
-# def run_string_command(command_string):
-    # print_str('run command: ' + command_string)
-    # os.system(command_string)
-
 def run_script(command_with_arguments):
     try:
         os.environ["project_root"] = project.directory
         p = subprocess.Popen(command_with_arguments)
         try:
-            # timeout_seconds = 60
-            # p.wait(timeout_seconds)
             p.wait()
         except subprocess.TimeoutExpired as ex:
             p.kill()
