@@ -53,7 +53,7 @@ parser.add_argument('command', nargs=argparse.REMAINDER, help='command with para
 conf = { 'logging_level': logging.INFO, }  # logging is set up before config loads
 script_path = dirname(realpath(__file__))
 working_directory = os.getcwd()
-global_config_folder = join(script_path, 'config.json')
+global_config_folder = join(script_path, '_config.json')
 local_config_folder = join(script_path, 'config_local.json')
 cmd_script_directory_name = ".cmd"
 version = '0.0.1'
@@ -90,7 +90,7 @@ def main():
     global aliases
     aliases = {}
     for command in commands_db:
-        call_fun = lambda cmd : (lambda args : run_string_command(cmd.command)) # todo add arguments ?
+        call_fun = lambda cmd : (lambda args : cmd.execute()) # todo add arguments ?
         if command.alias is not None:
             aliases[command.alias]=Command(call_fun(command), command.description)
 
@@ -157,7 +157,7 @@ def print_help():
         help_str += 'Enable advanced mode for more features, see documentation'
     print_str(help_str)
 
-def print_str(text, level=TEXT_LEVEL, end='\n'):
+def print_str(text="", level=TEXT_LEVEL, end='\n'):
     if level >= logger.level:
         print(text, end=end)
 
@@ -264,7 +264,8 @@ def load_commands():
 
 class Command:
     # command can be either str, or a function (str[]) -> None
-    def __init__(self, command:any, description:str = None, alias:str = None, creation_time:str = None):
+    def __init__(self, command:any, description:str = None, alias:str = None, creation_time:str = None,
+            command_hidden:bool = False):
         self.command = command
         if description=='': description = None
         self.description = description
@@ -272,21 +273,11 @@ class Command:
         self.alias = alias
         if creation_time is None: creation_time = str(datetime.datetime.now().strftime(time_format))
         self.creation_time = creation_time
+        self.command_hidden = command_hidden
 
     @classmethod
     def from_json(cls, data):
         return cls(**data)
-
-    def info_string(self):
-        ans = ''
-        ans += 'com: ' + self.command + '\n'
-        if self.alias is not None:
-            ans += 'ali: ' + self.alias + '\n'
-        if self.description is not None:
-            ans += 'des: ' + self.description + '\n'
-        if self.creation_time is not None:
-            ans += 'ctm: ' + self.creation_time + '\n'
-        return ans
 
     def find(self, query):
         to_check = [
@@ -300,6 +291,8 @@ class Command:
         for check in to_check:
             (priority, formatted_output) = search_and_format(query, check['field'])
             total_priority += priority
+            if check['name'] == 'cmd' and self.command_hidden:
+                formatted_output = ' *** command is hidden ***'
             total_formatted_output += check['name'] + ': ' + formatted_output + '\n'
         if total_priority != 0:
             return (total_priority,total_formatted_output)
@@ -308,7 +301,10 @@ class Command:
 
     def execute(self, args=[]):
         if type(self.command) is str:
-            run_string_command(self.command)
+            cmd = self.command
+            if self.command_hidden: cmd = ' *** command is hidden ***'
+            print_str('run command: ' + cmd)
+            os.system(self.command)
         else:
             self.command(args)
 
@@ -386,9 +382,9 @@ def load_json_file(file_location):
 
 # == Core Script Logic Chunks ====================================================
 
-def run_string_command(command_string):
-    print_str('run command: ' + command_string)
-    os.system(command_string)
+# def run_string_command(command_string):
+    # print_str('run command: ' + command_string)
+    # os.system(command_string)
 
 def run_script(command_with_arguments):
     try:
