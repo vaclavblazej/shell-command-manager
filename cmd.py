@@ -265,8 +265,7 @@ def load_commands():
 
 class Command:
     # command can be either str, or a function (str[]) -> None
-    def __init__(self, command:any, description:str = None, alias:str = None, creation_time:str = None,
-            command_hidden:bool = False):
+    def __init__(self, command:any, description:str = None, alias:str = None, creation_time:str = None):
         self.command = command
         if description=='': description = None
         self.description = description
@@ -274,7 +273,6 @@ class Command:
         self.alias = alias
         if creation_time is None: creation_time = str(datetime.datetime.now().strftime(time_format))
         self.creation_time = creation_time
-        self.command_hidden = command_hidden
 
     @classmethod
     def from_json(cls, data):
@@ -292,8 +290,6 @@ class Command:
         for check in to_check:
             (priority, formatted_output) = search_and_format(query, check['field'])
             total_priority += priority
-            if check['name'] == 'cmd' and self.command_hidden:
-                formatted_output = ' *** command is hidden ***' # todo improve hidden command interface
             total_formatted_output += check['name'] + ': ' + formatted_output + '\n'
         if total_priority != 0:
             return (total_priority,total_formatted_output)
@@ -303,7 +299,6 @@ class Command:
     def execute(self, args=[]):
         if type(self.command) is str:
             cmd = self.command
-            if self.command_hidden: cmd = ' *** command is hidden ***'
             print_str('run command: ' + cmd)
             os.system(self.command)
         else:
