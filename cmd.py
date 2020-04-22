@@ -82,8 +82,12 @@ def main():
         return SUCCESSFULL_EXECUTION
 
     if len(args.command) == 0:
+        if conf['default_command']:
+            new_args = conf['default_command'].split(' ')
+            if len(new_args) != 0: # prevent loop
+                sys.argv += new_args
+                return main()
         logger.warning('No command given')
-        print_help()
         return USER_ERROR
 
     current_command = args.command[0]

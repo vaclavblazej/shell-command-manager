@@ -1,3 +1,4 @@
 {
-    "history_home": ".bash_history"
+    "history_home": ".bash_history",
+    "default_command": "--help"
 }
