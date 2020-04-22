@@ -6,7 +6,7 @@
 # It IS designed to
 # * make a clear overview of custom-made commands
 # * provide a common user interface for the commands
-# * basic / advanced mode, basic has only save and find
+# ? basic / advanced mode, basic has only save and find
 # * provide a clear way to create a scripts which work well with this tool
 
 # It IS NOT designed to
@@ -33,39 +33,22 @@ VERBOSE_LEVEL = 15
 TEXT_LEVEL = 30
 QUIET_LEVEL = 60
 
-class ArgumentParser(argparse.ArgumentParser):  # bad argument exit code override
-    def error(self, message):
-        self.print_usage(sys.stderr)
-        self.exit(INVALID_ARGUMENT, '%s: error: %s\n' % (self.prog, message))
-
-parser = ArgumentParser(
-        description='Manage custom scripts from a central location',
-        epilog='Run without arguments to get information about available commands',
-        add_help=False,
-        )
-parser.add_argument('-h', '--help', dest='help', action='store_true', help='show this help message and exit')
-parser.add_argument('--version', dest='version', action='store_true', help='prints out version information')
-parser.add_argument('-q', '--quiet', dest='logging_level', const=QUIET_LEVEL, action='store_const', help='no output will be shown')
-parser.add_argument('-v', '--verbose', dest='logging_level', const=VERBOSE_LEVEL, action='store_const', help='more detailed info')
-parser.add_argument('-d', '--debug', dest='logging_level', const=logging.DEBUG, action='store_const', help='very detailed messages of script\'s inner workings')
-parser.add_argument('command', nargs=argparse.REMAINDER, help='command with parameters')
-
 conf = { 'logging_level': logging.INFO, }  # logging is set up before config loads
 script_path = dirname(realpath(__file__))
 working_directory = os.getcwd()
 global_config_folder = join(script_path, '_config.json')
 local_config_folder = join(script_path, 'config_local.json')
-cmd_script_directory_name = ".cmd"
+project_specific_subfolder = ".cmd"
 version = '0.0.1'
 simple_commands_file_location = join(script_path, 'commands.json')
 time_format = '%Y-%m-%d %H:%M:%S'
-
 
 # == Main Logic ==================================================================
 
 def main():
     configure()
     global args
+    setup_argument_handling()
     args = parser.parse_args()
     setup_logging()
     if args.logging_level: conf['logging_level'] = args.logging_level
@@ -81,10 +64,6 @@ def main():
         print_str('cmd version ' + version)
         return SUCCESSFULL_EXECUTION
 
-    global commands
-    commands = {}
-    commands['save']=Command(cmd_save)
-    commands['find']=Command(cmd_find)
     commands_db = load_commands()
 
     global aliases
@@ -105,6 +84,8 @@ def main():
 
     current_command = args.command[0]
     current_arguments = args.command[1:]
+    # if args.command
+    # 
     if current_command in commands:
         commands[current_command].execute(current_arguments)
     elif current_command in aliases:
@@ -123,38 +104,22 @@ def uv(to_print):
 
 def print_help():
     help_str = ''
-    if is_in_advanced_mode():
-        help_str += 'usage: cmd [--version] [--help] [-q|-v|-d] <command> [<args>]\n'
-        help_str += '\n'
-        help_str += 'Manage custom commands from a central location\n'
-        help_str += '\n'
-        help_str += 'commands:\n'
-        help_str += '   save         saves command which is passed as further arguments\n'
-        help_str += '   find         opens an interactive search for saved commands\n'
-        help_str += '\n'
-        help_str += 'custom commands:\n'
-        for command in aliases:
-            help_str += '   {0}\t{1}\n'.format(command, aliases[command].description)
-        help_str += '\n'
-        help_str += 'optional arguments:\n'
-        help_str += '   --version    prints out version information\n'
-        help_str += '   --help       show this help message and exit\n'
-        help_str += '   -q, -v, -d   quiet/verbose/debug output information'
-    else:
-        help_str += 'usage: cmd [--version] [--help] [-q|-v|-d] <command> [<args>]\n'
-        help_str += '\n'
-        help_str += 'Manage custom commands from a central location\n'
-        help_str += '\n'
-        help_str += 'commands:\n'
-        help_str += '   save         saves command which is passed as further arguments\n'
-        help_str += '   find         opens an interactive search for saved commands\n'
-        help_str += '\n'
-        help_str += 'optional arguments:\n'
-        help_str += '   --version    prints out version information\n'
-        help_str += '   --help       show this help message and exit\n'
-        help_str += '   -q, -v, -d   quiet/verbose/debug output information\n'
-        help_str += '\n'
-        help_str += 'Enable advanced mode for more features, see documentation'
+    help_str += 'usage: cmd [--version] [--help] [-q|-v|-d] <command> [<args>]\n'
+    help_str += '\n'
+    help_str += 'Manage custom commands from a central location\n'
+    help_str += '\n'
+    help_str += 'commands:\n'
+    help_str += '   save         saves command which is passed as further arguments\n'
+    help_str += '   find         opens an interactive search for saved commands\n'
+    help_str += '\n'
+    help_str += 'custom commands:\n'
+    for command in aliases:
+        help_str += '   {0}\t{1}\n'.format(command, aliases[command].description)
+    help_str += '\n'
+    help_str += 'optional arguments:\n'
+    help_str += '   --version    prints out version information\n'
+    help_str += '   --help       show this help message and exit\n'
+    help_str += '   -q, -v, -d   quiet/verbose/debug output information'
     print_str(help_str)
 
 def print_str(text="", level=TEXT_LEVEL, end='\n'):
@@ -309,7 +274,7 @@ class Project:
         self.directory = self.find_project_location(search_directory)
         if self.is_present():
             self.name = basename(self.directory)
-            self.cmd_script_directory = join(self.directory, cmd_script_directory_name)
+            self.cmd_script_directory = join(self.directory, project_specific_subfolder)
             self.commands_directory = join(self.cmd_script_directory, 'commands')
             self.completion_script = join(self.cmd_script_directory, 'completion.py')
             self.help_script = join(self.cmd_script_directory, 'help.py')
@@ -319,7 +284,7 @@ class Project:
     def find_project_location(self, search_directory):
         currently_checked_folder = search_directory
         while True:
-            possible_project_command_folder = join(currently_checked_folder, cmd_script_directory_name)
+            possible_project_command_folder = join(currently_checked_folder, project_specific_subfolder)
             if exists(possible_project_command_folder):
                 return currently_checked_folder
             if currently_checked_folder == dirname(currently_checked_folder):
@@ -339,8 +304,28 @@ class Project:
 
 # == Configuration ===============================================================
 
-def is_in_advanced_mode():
-    return 'mode' in conf and conf['mode'] == 'advanced'
+def setup_argument_handling():
+    global parser
+    class ArgumentParser(argparse.ArgumentParser):  # bad argument exit code override
+        def error(self, message):
+            self.print_usage(sys.stderr)
+            self.exit(INVALID_ARGUMENT, '%s: error: %s\n' % (self.prog, message))
+
+    parser = ArgumentParser(
+            description='Manage custom scripts from a central location',
+            epilog='Run without arguments to get information about available commands',
+            add_help=False,
+            )
+    parser.add_argument('-h', '--help', dest='help', action='store_true', help='show this help message and exit')
+    parser.add_argument('--version', dest='version', action='store_true', help='prints out version information')
+
+    parser.add_argument('-s', '--save', dest='command', const=cmd_save, action='store_const', help='saves command which is passed as further arguments')
+    parser.add_argument('-f', '--find', dest='command', const=cmd_find, action='store_const', help='opens an interactive search for saved commands')
+
+    parser.add_argument('-q', '--quiet', dest='logging_level', const=QUIET_LEVEL, action='store_const', help='no output will be shown')
+    parser.add_argument('-v', '--verbose', dest='logging_level', const=VERBOSE_LEVEL, action='store_const', help='more detailed info')
+    parser.add_argument('-d', '--debug', dest='logging_level', const=logging.DEBUG, action='store_const', help='very detailed messages of script\'s inner workings')
+    parser.add_argument('command', nargs=argparse.REMAINDER, help='command with parameters')
 
 def setup_logging():
     logging.addLevelName(VERBOSE_LEVEL, 'VERBOSE')
