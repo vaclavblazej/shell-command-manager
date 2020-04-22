@@ -116,6 +116,10 @@ def print_help():
         help_str += 'custom commands:\n'
         for command in aliases:
             help_str += '   {0}\t{1}\n'.format(command, aliases[command].description)
+    else:
+        help_str += '\n'
+        help_str += '   You may add new custom commands via "cmd --save"\n'
+        help_str += '   if the command is given alias, it will show up here\n'
     help_str += '\n'
     help_str += 'management commands:\n'
     help_str += '   --save, -s   Saves command which is passed as further arguments\n'
