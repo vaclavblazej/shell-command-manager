@@ -77,6 +77,10 @@ def main():
         print_help()
         return SUCCESSFULL_EXECUTION
 
+    if args.flag_command is not None:
+        args.flag_command(args.command)
+        return SUCCESSFULL_EXECUTION
+
     if len(args.command) == 0:
         logger.warning('No command given')
         print_help()
@@ -84,11 +88,7 @@ def main():
 
     current_command = args.command[0]
     current_arguments = args.command[1:]
-    # if args.command
-    # 
-    if current_command in commands:
-        commands[current_command].execute(current_arguments)
-    elif current_command in aliases:
+    if current_command in aliases:
         aliases[current_command].execute(current_arguments)
     else:
         logger.warning('The given command ' + uv(current_command) + ' was not found')
@@ -104,21 +104,22 @@ def uv(to_print):
 
 def print_help():
     help_str = ''
-    help_str += 'usage: cmd [--version] [--help] [-q|-v|-d] <command> [<args>]\n'
+    help_str += 'usage: cmd [-q|-v|-d] <command> [<args>]\n'
     help_str += '\n'
     help_str += 'Manage custom commands from a central location\n'
+    if len(aliases) != 0:
+        help_str += '\n'
+        help_str += 'custom commands:\n'
+        for command in aliases:
+            help_str += '   {0}\t{1}\n'.format(command, aliases[command].description)
     help_str += '\n'
-    help_str += 'commands:\n'
-    help_str += '   save         saves command which is passed as further arguments\n'
-    help_str += '   find         opens an interactive search for saved commands\n'
-    help_str += '\n'
-    help_str += 'custom commands:\n'
-    for command in aliases:
-        help_str += '   {0}\t{1}\n'.format(command, aliases[command].description)
+    help_str += 'management commands:\n'
+    help_str += '   --save, -s   Saves command which is passed as further arguments\n'
+    help_str += '   --find, -f   Opens an interactive search for saved commands\n'
+    help_str += '   --version    Prints out version information\n'
+    help_str += '   --help, -h   Request detailed information about flags or commands\n'
     help_str += '\n'
     help_str += 'optional arguments:\n'
-    help_str += '   --version    prints out version information\n'
-    help_str += '   --help       show this help message and exit\n'
     help_str += '   -q, -v, -d   quiet/verbose/debug output information'
     print_str(help_str)
 
@@ -319,8 +320,8 @@ def setup_argument_handling():
     parser.add_argument('-h', '--help', dest='help', action='store_true', help='show this help message and exit')
     parser.add_argument('--version', dest='version', action='store_true', help='prints out version information')
 
-    parser.add_argument('-s', '--save', dest='command', const=cmd_save, action='store_const', help='saves command which is passed as further arguments')
-    parser.add_argument('-f', '--find', dest='command', const=cmd_find, action='store_const', help='opens an interactive search for saved commands')
+    parser.add_argument('-s', '--save', dest='flag_command', const=cmd_save, action='store_const', help='saves command which is passed as further arguments')
+    parser.add_argument('-f', '--find', dest='flag_command', const=cmd_find, action='store_const', help='opens an interactive search for saved commands')
 
     parser.add_argument('-q', '--quiet', dest='logging_level', const=QUIET_LEVEL, action='store_const', help='no output will be shown')
     parser.add_argument('-v', '--verbose', dest='logging_level', const=VERBOSE_LEVEL, action='store_const', help='more detailed info')
