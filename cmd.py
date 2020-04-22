@@ -60,10 +60,6 @@ def main():
     global project
     project = Project(working_directory)
 
-    if args.version:
-        print_str('cmd version ' + version)
-        return SUCCESSFULL_EXECUTION
-
     commands_db = load_commands()
 
     global aliases
@@ -73,13 +69,8 @@ def main():
         if command.alias is not None:
             aliases[command.alias]=Command(call_fun(command), command.description)
 
-    if args.help:
-        print_help()
-        return SUCCESSFULL_EXECUTION
-
     if args.flag_command is not None:
-        args.flag_command(args.command)
-        return SUCCESSFULL_EXECUTION
+        return args.flag_command(args.command)
 
     if len(args.command) == 0:
         if conf['default_command']:
@@ -168,6 +159,14 @@ def input_with_prefill(prompt, text):
 
 # == Commands ====================================================================
 
+def cmd_help(arguments):
+    print_help()
+    return SUCCESSFULL_EXECUTION
+
+def cmd_version(arguments):
+    print_str('cmd version ' + version)
+    return SUCCESSFULL_EXECUTION
+
 def cmd_save(arguments):
     command_to_save = ' '.join(arguments)
     if command_to_save == '':
@@ -182,6 +181,7 @@ def cmd_save(arguments):
     commands_db = load_commands()
     commands_db += [Command(command_to_save, description)]
     save_json_file(commands_db, simple_commands_file_location)
+    return SUCCESSFULL_EXECUTION
 
 def cmd_find(arguments):
     max_cmd_count = 4
@@ -230,6 +230,7 @@ def cmd_find(arguments):
                 print_str('\nand ' + str(total_results_count-cmd_showing_count) + ' other commands')
     except EOFError as e:
         print_str()
+    return SUCCESSFULL_EXECUTION
 
 def load_commands():
     commands_db = load_json_file(simple_commands_file_location)
@@ -325,11 +326,10 @@ def setup_argument_handling():
             epilog='Run without arguments to get information about available commands',
             add_help=False,
             )
-    parser.add_argument('-h', '--help', dest='help', action='store_true', help='show this help message and exit')
-    parser.add_argument('--version', dest='version', action='store_true', help='prints out version information')
-
-    parser.add_argument('-s', '--save', dest='flag_command', const=cmd_save, action='store_const', help='saves command which is passed as further arguments')
-    parser.add_argument('-f', '--find', dest='flag_command', const=cmd_find, action='store_const', help='opens an interactive search for saved commands')
+    parser.add_argument('-h', '--help', dest='flag_command', const=cmd_help, action='store_const', help='Request detailed information about flags or commands')
+    parser.add_argument('--version', dest='flag_command', const=cmd_version, action='store_const', help='Prints out version information')
+    parser.add_argument('-s', '--save', dest='flag_command', const=cmd_save, action='store_const', help='Saves command which is passed as further arguments')
+    parser.add_argument('-f', '--find', dest='flag_command', const=cmd_find, action='store_const', help='Opens an interactive search for saved commands')
 
     parser.add_argument('-q', '--quiet', dest='logging_level', const=QUIET_LEVEL, action='store_const', help='no output will be shown')
     parser.add_argument('-v', '--verbose', dest='logging_level', const=VERBOSE_LEVEL, action='store_const', help='more detailed info')

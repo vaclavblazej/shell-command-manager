@@ -12,7 +12,7 @@ ln -s ./command/cmd.py ~/bin/cmd
 
 ## Basic usage
 
-Use `cmd save` to catalogue a command.
+Use `cmd --save` to catalogue a command.
 
 ```bash
 $ lsb_release -a
@@ -21,15 +21,15 @@ Description:	Ubuntu 19.10
 Release:	19.10
 Codename:	eoan
 
-$ cmd save
-The command to be saved: lsb_release -a   % note that this was pre-filled
+$ cmd --save
+The command to be saved: lsb_release -a   % note that this was pre-filled from history
 Short description: Shows the system version
 ```
 
-Use `cmd load` to invoke search for commands.
+Use `cmd --find` to invoke search for commands.
 
 ```bash
-$ cmd find
+$ cmd --find
 ========================================
 query $ system                            % items matching the regex are displayed
 --- 1 ------------------------------
