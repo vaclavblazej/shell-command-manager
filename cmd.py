@@ -6,7 +6,6 @@
 # It IS designed to
 # * make a clear overview of custom-made commands
 # * provide a common user interface for the commands
-# ? basic / advanced mode, basic has only save and find
 # * provide a clear way to create a scripts which work well with this tool
 
 # It IS NOT designed to
@@ -22,7 +21,7 @@
 # ? add configuration to the project-specific folder
 
 import os, sys, argparse, logging, subprocess, enum, json, datetime, re
-import readline # enables arrows in the input() method
+import readline # enables prefill for the input() method
 from os.path import *
 
 SUCCESSFULL_EXECUTION = 0
@@ -60,7 +59,7 @@ def main():
     global project
     project = Project(working_directory)
 
-    commands_db = load_commands()
+    commands_db = load_commands(simple_commands_file_location)
 
     global aliases
     aliases = {}
@@ -126,6 +125,11 @@ def print_str(text="", level=TEXT_LEVEL, end='\n'):
     if level >= logger.level:
         print(text, end=end)
 
+def input_str(text="", level=TEXT_LEVEL, end=''):
+    if level >= logger.level:
+        print(text, end=end)
+    return input()
+
 def search_and_format(pattern:str, text:str) -> (int, str):
     if text is None:
         return (0, "")
@@ -148,7 +152,8 @@ def search_and_format(pattern:str, text:str) -> (int, str):
     return (priority, formatted_text)
 
 # https://stackoverflow.com/questions/8505163/is-it-possible-to-prefill-a-input-in-python-3s-command-line-interface
-def input_with_prefill(prompt, text):
+def input_with_prefill(prompt, text, level=TEXT_LEVEL):
+    if not level >= logger.level: prompt = ''
     def hook():
         readline.insert_text(text)
         readline.redisplay()
@@ -177,8 +182,8 @@ def cmd_save(arguments):
 
     if not exists(simple_commands_file_location):
         save_json_file([], simple_commands_file_location)
-    description=input('Short description: ')
-    commands_db = load_commands()
+    description=input_str('Short description: ')
+    commands_db = load_commands(simple_commands_file_location)
     commands_db += [Command(command_to_save, description)]
     save_json_file(commands_db, simple_commands_file_location)
     return SUCCESSFULL_EXECUTION
@@ -186,7 +191,7 @@ def cmd_save(arguments):
 def cmd_find(arguments):
     max_cmd_count = 4
     max_cmd_count_slack = 2
-    commands_db = load_commands()
+    commands_db = load_commands(simple_commands_file_location)
     selected_commands = []
     try:
         while True:
@@ -195,7 +200,7 @@ def cmd_find(arguments):
                 query = ' '.join(arguments)
                 arguments = []
             else:
-                query = input('query $ ')
+                query = input_str('query $ ')
             try:
                 idx = int(query)
                 if idx not in range(1,len(selected_commands)+1):
@@ -232,8 +237,8 @@ def cmd_find(arguments):
         print_str()
     return SUCCESSFULL_EXECUTION
 
-def load_commands():
-    commands_db = load_json_file(simple_commands_file_location)
+def load_commands(commands_file_location):
+    commands_db = load_json_file(commands_file_location)
     return list(map(Command.from_json, commands_db))
 
 # == Structure ===================================================================
@@ -289,7 +294,7 @@ class Project:
             self.completion_script = join(self.cmd_script_directory, 'completion.py')
             self.help_script = join(self.cmd_script_directory, 'help.py')
             if exists(self.commands_directory):
-                self.command_files = list(os.listdir(self.commands_directory))
+                self.commands = load_commands(join(self.commands_directory, 'commands.json'))
 
     def find_project_location(self, search_directory):
         currently_checked_folder = search_directory
