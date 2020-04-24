@@ -126,9 +126,9 @@ def print_str(text="", level=TEXT_LEVEL, end='\n'):
         print(text, end=end)
 
 def input_str(text="", level=TEXT_LEVEL, end=''):
-    if level >= logger.level:
-        print(text, end=end)
-    return input()
+    prompt = ''
+    if level >= logger.level: prompt = text
+    return input(prompt)
 
 def search_and_format(pattern:str, text:str) -> (int, str):
     if text is None:
@@ -182,9 +182,10 @@ def cmd_save(arguments):
 
     if not exists(simple_commands_file_location):
         save_json_file([], simple_commands_file_location)
+    alias=input_str('Alias: ')
     description=input_str('Short description: ')
     commands_db = load_commands(simple_commands_file_location)
-    commands_db += [Command(command_to_save, description)]
+    commands_db += [Command(command_to_save, description, alias)]
     save_json_file(commands_db, simple_commands_file_location)
     return SUCCESSFULL_EXECUTION
 
