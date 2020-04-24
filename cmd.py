@@ -40,7 +40,6 @@ local_config_folder = join(script_path, 'config_local.json')
 project_specific_subfolder = ".cmd"
 version = '0.0.1'
 simple_commands_file_location = join(script_path, 'commands.json')
-time_format = '%Y-%m-%d %H:%M:%S'
 
 # == Main Logic ==================================================================
 
@@ -252,7 +251,7 @@ class Command:
         self.description = description
         if alias=='': alias = None
         self.alias = alias
-        if creation_time is None: creation_time = str(datetime.datetime.now().strftime(time_format))
+        if creation_time is None: creation_time = str(datetime.datetime.now().strftime(conf['time_format']))
         self.creation_time = creation_time
 
     @classmethod
