@@ -40,7 +40,6 @@ local_config_folder = join(script_path, 'config_local.json')
 project_specific_subfolder = ".cmd"
 version = '0.0.1'
 simple_commands_file_location = join(script_path, 'commands.json')
-time_format = '%Y-%m-%d %H:%M:%S'
 complete = None
 
 # == Main Logic ==================================================================
@@ -121,9 +120,9 @@ def print_str(text="", level=TEXT_LEVEL, end='\n'):
         print(text, end=end)
 
 def input_str(text="", level=TEXT_LEVEL, end=''):
-    if level >= logger.level:
-        print(text, end=end)
-    return input()
+    prompt = ''
+    if level >= logger.level: prompt = text
+    return input(prompt)
 
 def search_and_format(pattern:str, text:str) -> (int, str):
     if text is None:
@@ -178,9 +177,10 @@ def cmd_save(arguments):
 
     if not exists(simple_commands_file_location):
         save_json_file([], simple_commands_file_location)
+    alias=input_str('Alias: ')
     description=input_str('Short description: ')
     commands_db = load_commands(simple_commands_file_location)
-    commands_db += [Command(command_to_save, description)]
+    commands_db += [Command(command_to_save, description, alias)]
     save_json_file(commands_db, simple_commands_file_location)
     return SUCCESSFULL_EXECUTION
 
@@ -269,7 +269,7 @@ class Command:
         self.description = description
         if alias=='': alias = None
         self.alias = alias
-        if creation_time is None: creation_time = str(datetime.datetime.now().strftime(time_format))
+        if creation_time is None: creation_time = str(datetime.datetime.now().strftime(conf['time_format']))
         self.creation_time = creation_time
 
     @classmethod
