@@ -16,7 +16,6 @@
 # * load current project scripts
 # ? scripts.json will holds commands situated in files, similar to commands.json
 # * improve search (not only one whole regex)
-# * make help generated, not hardcoded
 # * (seems hard) copy the command into command line instead of executing it
 # ? add configuration to the project-specific folder
 
@@ -95,25 +94,10 @@ def print_help():
     help_str += 'usage: cmd [-q|-v|-d] <command> [<args>]\n'
     help_str += '\n'
     help_str += 'Manage custom commands from a central location\n'
-    if len(aliases) != 0:
-        help_str += '\n'
-        help_str += 'custom commands:\n'
-        for command in aliases:
-            help_str += '   {0}\t{1}\n'.format(command, aliases[command].description)
-    else:
-        help_str += '\n'
-        help_str += '   You may add new custom commands via "cmd --save"\n'
-        help_str += '   if the command is given alias, it will show up here\n'
-    help_str += '\n'
-    help_str += 'management commands:\n'
-    help_str += '   --save, -s   Saves command which is passed as further arguments\n'
-    help_str += '   --find, -f   Opens an interactive search for saved commands\n'
-    help_str += '   --version    Prints out version information\n'
-    help_str += '   --help, -h   Request detailed information about flags or commands\n'
-    help_str += '\n'
-    help_str += 'optional arguments:\n'
-    help_str += '   -q, -v, -d   quiet/verbose/debug output information'
     print_str(help_str)
+    print_str(ArgumentGroup.to_str(), end='')
+    # additional_str = ''
+    # print_str(additional_str) #todo print info about very detailed peculiar options (such as --complete)
 
 def print_str(text="", level=TEXT_LEVEL, end='\n'):
     if level >= logger.level:
@@ -258,6 +242,10 @@ def load_aliases():
         call_fun = lambda cmd : (lambda args : cmd.execute()) # todo add arguments ?
         if command.alias is not None:
             aliases[command.alias]=Command(call_fun(command), command.description)
+    return [CommandArgument(cmd) for cmd in commands_db if cmd.alias]
+
+def load_project_aliases():
+    pass # todo
 
 # == Structure ===================================================================
 
@@ -379,6 +367,76 @@ def configure():
     return
 
 # == Argument parser =============================================================
+
+class Argument:
+    def to_str():
+        return 'argument has undefined print'
+
+class CommandArgument(Argument):
+    def __init__(self, command:Command):
+        if type(command.alias) is str:
+            self.arg_name = command.alias
+        self.short_arg_name = None
+        self.help_str = command.description
+    def to_str(self):
+        res = self.arg_name
+        if self.short_arg_name: res += ', ' + self.short_arg_name
+        if self.help_str: res += '\t' + self.help_str
+        return res
+
+class FixedArgument(Argument,enum.Enum):
+    SAVE = ('--save', '-s', cmd_save, 'Saves command which is passed as further arguments')
+    FIND = ('--find', '-f', cmd_find, 'Opens an interactive search for saved commands')
+    VER = ('--version', None, cmd_version, 'Prints out version information')
+    HELP = ('--help', '-h', cmd_help, 'Request detailed information about flags or commands')
+    COMPLETION = ('--completion', None, cmd_complete, 'Returns list of words which are supplied to the completion shell command')
+    QUIET = ('--quiet', '-q', None, 'no output will be shown')
+    VERBOSE = ('--verbose', '-v', None, 'more detailed output information')
+    DEBUG = ('--debug', '-d', None, 'very detailed messages of script\'s inner workings')
+
+    def __init__(self, arg_name:str, short_arg_name:str, function, help_str:str):
+        self.arg_name = arg_name
+        self.short_arg_name = short_arg_name
+        self.function = function
+        self.help_str = help_str
+
+    def to_str(self):
+        res = ''
+        res += self.arg_name
+        if self.short_arg_name:
+            res += ', ' + self.short_arg_name
+        res += '\t' + self.help_str
+        return res
+    
+class ArgumentGroup(enum.Enum):
+    PROJECT_COMMANDS = ('project commands', None, load_project_aliases)
+    CUSTOM_COMMANDS = ('custom commands', None, load_aliases, 'You may add new custom commands via "cmd --save if the command is given alias, it will show up here')
+    FLAG_COMMANDS = ('management commands', [FixedArgument.SAVE, FixedArgument.FIND, FixedArgument.VER, FixedArgument.HELP])
+    OPTIONAL_ARGUMENTS = ('optional argument', [FixedArgument.QUIET, FixedArgument.VERBOSE, FixedArgument.DEBUG])
+
+    def __init__(self, group_name:str, arguments:[Argument]=None, arg_fun=None, if_empty:str=None):
+        self.group_name = group_name
+        self.arguments = arguments
+        self.arg_fun = arg_fun
+        self.if_empty = if_empty
+
+    @staticmethod
+    def to_str():
+        res = ""
+        for group in ArgumentGroup:
+            if res!='': res += '\n'
+            args = group.arguments
+            if not args and group.arg_fun:
+                args = group.arg_fun()
+            if args:
+                res += group.group_name + ":\n"
+                for argument in args:
+                    res += '   ' + argument.to_str() + '\n'
+            elif group.if_empty:
+                res += group.group_name + ":\n"
+                res += '   ' + group.if_empty + '\n'
+        return res
+        
 
 class Parser:
     def __init__(self):
