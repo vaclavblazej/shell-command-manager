@@ -41,6 +41,7 @@ project_specific_subfolder = ".cmd"
 version = '0.0.1'
 simple_commands_file_location = join(script_path, 'commands.json')
 time_format = '%Y-%m-%d %H:%M:%S'
+complete = None
 
 # == Main Logic ==================================================================
 
@@ -59,19 +60,13 @@ def main():
     global project
     project = Project(working_directory)
 
-    commands_db = load_commands(simple_commands_file_location)
-
-    global aliases
-    aliases = {}
-    for command in commands_db:
-        call_fun = lambda cmd : (lambda args : cmd.execute()) # todo add arguments ?
-        if command.alias is not None:
-            aliases[command.alias]=Command(call_fun(command), command.description)
+    load_aliases()
 
     if args.flag_command is not None:
         return args.flag_command(args.command)
 
     if len(args.command) == 0:
+        if complete: return complete_commands()
         if conf['default_command']:
             new_args = conf['default_command'].split(' ')
             if len(new_args) != 0: # prevent loop
@@ -169,6 +164,7 @@ def cmd_help(arguments):
     return SUCCESSFULL_EXECUTION
 
 def cmd_version(arguments):
+    if complete: return complete_nothing()
     print_str('cmd version ' + version)
     return SUCCESSFULL_EXECUTION
 
@@ -237,9 +233,31 @@ def cmd_find(arguments):
         print_str()
     return SUCCESSFULL_EXECUTION
 
+def cmd_complete(arguments):
+    last_arg=sys.argv[-1]
+    sys.argv=[sys.argv[0]] + sys.argv[2:-1]
+    # print(sys.argv)
+    global complete
+    complete = Complete(last_arg)
+    logger.setLevel(QUIET_LEVEL) # fix when set after main() call
+    main_res=main()
+    for word in complete.words:
+        print(word, end=' ')
+    print()
+    return main_res
+
 def load_commands(commands_file_location):
     commands_db = load_json_file(commands_file_location)
     return list(map(Command.from_json, commands_db))
+
+def load_aliases():
+    commands_db = load_commands(simple_commands_file_location)
+    global aliases
+    aliases = {}
+    for command in commands_db:
+        call_fun = lambda cmd : (lambda args : cmd.execute()) # todo add arguments ?
+        if command.alias is not None:
+            aliases[command.alias]=Command(call_fun(command), command.description)
 
 # == Structure ===================================================================
 
@@ -335,6 +353,7 @@ def setup_argument_handling():
     parser.add_argument('--version', dest='flag_command', const=cmd_version, action='store_const', help='Prints out version information')
     parser.add_argument('-s', '--save', dest='flag_command', const=cmd_save, action='store_const', help='Saves command which is passed as further arguments')
     parser.add_argument('-f', '--find', dest='flag_command', const=cmd_find, action='store_const', help='Opens an interactive search for saved commands')
+    parser.add_argument('--complete', dest='flag_command', const=cmd_complete, action='store_const', help='')
 
     parser.add_argument('-q', '--quiet', dest='logging_level', const=QUIET_LEVEL, action='store_const', help='no output will be shown')
     parser.add_argument('-v', '--verbose', dest='logging_level', const=VERBOSE_LEVEL, action='store_const', help='more detailed info')
@@ -358,6 +377,48 @@ def configure():
     conf.update(load_json_file(global_config_folder))
     conf.update(load_json_file(local_config_folder))
     return
+
+# == Argument parser =============================================================
+
+class Parser:
+    def __init__(self):
+        pass
+    def shift(self):
+        sys.argv = sys.argv[1:]
+    def integer(self):
+        val = sys.argv[0]
+        if val is int: return val
+        return None
+
+# == Completion ==================================================================
+
+class Complete:
+    def __init__(self, last_arg):
+        self.last_arg = last_arg
+        self.words = []
+
+    @property
+    def words(self):
+        res_words = []
+        for word in self.__words:
+            if word.startswith(self.last_arg) and (len(self.last_arg) != 0 or '-'!=word[0]):
+                res_words += [word]
+        return res_words
+
+    @words.setter
+    def words(self, words):
+        self.__words = words
+
+def complete_nothing():
+    return SUCCESSFULL_EXECUTION
+
+def complete_commands():
+    flag_commands = ['--save','--find','--version','--help','--complete','-s','-f','-h']
+    flags = ['-q','-v','-d']
+    complete.words += aliases
+    complete.words += flag_commands
+    complete.words += flags
+    return SUCCESSFULL_EXECUTION
 
 # == File Manipulation ===========================================================
 
