@@ -13,11 +13,9 @@
 # * check correctness or analyse the commands
 
 # === TODOS ===
-# * load current project scripts
-# ? scripts.json will holds commands situated in files, similar to commands.json
+# ? allow user to register project scripts
 # * improve search (not only one whole regex)
 # * (seems hard) copy the command into command line instead of executing it
-# ? add configuration to the project-specific folder
 
 import os, sys, argparse, logging, subprocess, enum, json, datetime, re
 import readline # enables prefill for the input() method
@@ -40,6 +38,8 @@ project_specific_subfolder = ".cmd"
 version = '0.0.1'
 simple_commands_file_location = join(script_path, 'commands.json')
 complete = None
+project_context = False # todo ?
+project_root_var = 'project_root'
 
 # == Main Logic ==================================================================
 
@@ -59,6 +59,7 @@ def main():
     project = Project(working_directory)
 
     load_aliases()
+    load_project_aliases()
 
     if args.flag_command is not None:
         return args.flag_command(args.command)
@@ -75,11 +76,13 @@ def main():
 
     current_command = args.command[0]
     current_arguments = args.command[1:]
-    if current_command in aliases:
+    if current_command in project_aliases:
+        project_aliases[current_command].execute(current_arguments)
+    elif current_command in aliases:
         aliases[current_command].execute(current_arguments)
     else:
         logger.warning('The given command ' + uv(current_command) + ' was not found')
-        print_help()
+        logger.info('run "cmd --help" if you are having trouble')
         return USER_ERROR
 
     return SUCCESSFULL_EXECUTION
@@ -153,11 +156,19 @@ def cmd_version(arguments):
 
 def cmd_save(arguments):
     command_to_save = ' '.join(arguments)
+    edited = False
     if command_to_save == '':
         history_file_location = join(os.environ['HOME'],conf['history_home'])
         history_command_in_binary = subprocess.check_output(['tail','-1',history_file_location])
         history_command = history_command_in_binary[:-1].decode("utf-8")
         command_to_save = input_with_prefill('The command to be saved: ', history_command)
+        edited = True
+    if project_context and project.is_present() and exists(command_to_save.split(' ')[0]):
+        args = command_to_save.split(' ')
+        args[0] = '$' + project_root_var + '/' + os.path.relpath(join(working_directory, args[0]), project.directory) # might have problem with absolute paths
+        command_to_save = ' '.join(args)
+    if not edited:
+        print_str('Saving command: ' + command_to_save)
 
     if not exists(simple_commands_file_location):
         save_json_file([], simple_commands_file_location)
@@ -238,14 +249,22 @@ def load_aliases():
     commands_db = load_commands(simple_commands_file_location)
     global aliases
     aliases = {}
+    call_fun = lambda cmd : (lambda args : cmd.execute(args))
     for command in commands_db:
-        call_fun = lambda cmd : (lambda args : cmd.execute()) # todo add arguments ?
-        if command.alias is not None:
+        if command.alias:
             aliases[command.alias]=Command(call_fun(command), command.description)
     return [CommandArgument(cmd) for cmd in commands_db if cmd.alias]
 
 def load_project_aliases():
-    pass # todo
+    global project_aliases
+    project_aliases = {}
+    if project.is_present():
+        call_fun = lambda cmd : (lambda args : cmd.execute(args))
+        for command in project.commands:
+            if command.alias:
+                project_aliases[command.alias]=Command(call_fun(command), command.description)
+        return [CommandArgument(cmd) for cmd in project.commands if cmd.alias]
+    return None
 
 # == Structure ===================================================================
 
@@ -283,6 +302,7 @@ class Command:
             return None
 
     def execute(self, args=[]):
+        os.environ[project_root_var] = project.directory
         if type(self.command) is str:
             cmd = self.command
             print_str('run command: ' + cmd)
@@ -294,13 +314,18 @@ class Project:
     def __init__(self, search_directory):
         self.directory = self.find_project_location(search_directory)
         if self.is_present():
-            self.name = basename(self.directory)
+            self.conf = {
+                    'name': basename(self.directory),
+                    'completion': None
+                    }
             self.cmd_script_directory = join(self.directory, project_specific_subfolder)
-            self.commands_directory = join(self.cmd_script_directory, 'commands')
+            self.config_file = join(self.cmd_script_directory, 'config.json')
+            conf.update(load_json_file(self.config_file))
+            self.commands_file = join(self.cmd_script_directory, 'commands.json')
             self.completion_script = join(self.cmd_script_directory, 'completion.py')
             self.help_script = join(self.cmd_script_directory, 'help.py')
-            if exists(self.commands_directory):
-                self.commands = load_commands(join(self.commands_directory, 'commands.json'))
+            if exists(self.commands_file):
+                self.commands = load_commands(self.commands_file)
 
     def find_project_location(self, search_directory):
         currently_checked_folder = search_directory
@@ -313,7 +338,7 @@ class Project:
             currently_checked_folder = dirname(currently_checked_folder)
 
     def is_present(self):
-        return self.directory is not None
+        return self.directory
 
     def print_help(self):
         if exists(self.help_script):
@@ -441,12 +466,25 @@ class ArgumentGroup(enum.Enum):
 class Parser:
     def __init__(self):
         pass
+
+    def peek(self):
+        return sys.argv[0]
+
     def shift(self):
+        res = peek()
         sys.argv = sys.argv[1:]
-    def integer(self):
-        val = sys.argv[0]
-        if val is int: return val
-        return None
+        return res
+
+    def argument_may(self, group:ArgumentGroup):
+        current = self.peek()
+        for arg in group:
+            if current in [arg.arg_name, arg.short_arg_name]:
+                arg.function()
+
+    def argument_must(self, group:ArgumentGroup):
+        argument_may()
+        raise Exception('argument was expected') # todo make the exception more descriptive
+
 
 # == Completion ==================================================================
 
@@ -498,7 +536,7 @@ def load_json_file(file_location):
 
 def run_script(command_with_arguments):
     try:
-        os.environ["project_root"] = project.directory
+        os.environ[project_root_var] = project.directory
         p = subprocess.Popen(command_with_arguments)
         try:
             p.wait()
