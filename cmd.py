@@ -302,7 +302,8 @@ class Command:
             return None
 
     def execute(self, args=[]):
-        os.environ[project_root_var] = project.directory
+        if project.is_present():
+            os.environ[project_root_var] = project.directory
         if type(self.command) is str:
             cmd = self.command
             print_str('run command: ' + cmd)

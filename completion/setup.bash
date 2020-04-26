@@ -15,4 +15,3 @@ function _my_custom_completion_func {
 
 complete -o nospace -F _my_custom_completion_func cmd
 
-

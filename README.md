@@ -51,7 +51,15 @@ To edit the commands or their description, edit the `./<script_location>/command
 
 ### Completion
 
-You can setup completion by sourcing `./<script_location>/completion/source.bash` or `source.zsh` depending on your shell.
+You can setup completion by adding `source ./<script_location>/completion/setup.bash` or `setup.zsh` depending on your shell `rc` script.
+
+```bash
+echo "source \"$PWD/command/completion/setup.bash\"" >> ~/.bashrc
+```
+
+```zsh
+echo "source \"$PWD/command/completion/setup.zsh\"" >> ~/.zshrc
+```
 
 ## Advanced usage
 
