@@ -325,8 +325,9 @@ class Project:
             self.commands_file = join(self.cmd_script_directory, 'commands.json')
             self.completion_script = join(self.cmd_script_directory, 'completion.py')
             self.help_script = join(self.cmd_script_directory, 'help.py')
-            if exists(self.commands_file):
-                self.commands = load_commands(self.commands_file)
+            if not exists(self.commands_file):
+                save_json_file([], self.commands_file)
+            self.commands = load_commands(self.commands_file)
 
     def find_project_location(self, search_directory):
         currently_checked_folder = search_directory
