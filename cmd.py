@@ -15,9 +15,11 @@
 # === TODOS ===
 # ? allow user to register project scripts
 # * improve search (not only one whole regex)
+# * help for arguments
+# * completion for arguments
 # * (seems hard) copy the command into command line instead of executing it
 
-import os, sys, argparse, logging, subprocess, enum, json, datetime, re
+import os, sys, logging, subprocess, enum, json, datetime, re
 import readline # enables prefill for the input() method
 from os.path import *
 
@@ -40,16 +42,17 @@ simple_commands_file_location = join(script_path, 'commands.json')
 complete = None
 project_context = False # todo ?
 project_root_var = 'project_root'
+default_command_load_deja_vu = False # have you seen the Matrix?
 
 # == Main Logic ==================================================================
 
 def main():
     configure()
-    global args
-    setup_argument_handling()
-    args = parser.parse_args()
     setup_logging()
-    if args.logging_level: conf['logging_level'] = args.logging_level
+    global parser
+    parser = Parser(sys.argv)
+    parser.shift() # the program name
+    while parser.may_have([ArgumentGroup.OPTIONAL_ARGUMENTS]): pass
     logger.setLevel(conf['logging_level'])
     logger.debug('Configuration: ' + str(conf))
     logger.debug('Script folder: ' + uv(script_path))
@@ -61,26 +64,24 @@ def main():
     load_aliases()
     load_project_aliases()
 
-    if args.flag_command is not None:
-        return args.flag_command(args.command)
+    current_command = parser.peek()
 
-    if len(args.command) == 0:
+    if not current_command:
         if complete: return complete_commands()
         if conf['default_command']:
             new_args = conf['default_command'].split(' ')
-            if len(new_args) != 0: # prevent loop
+            global default_command_load_deja_vu
+            if len(new_args) != 0: # prevent simple loop
+                if default_command_load_deja_vu:
+                    logger.warning('The default command is invalid, it must include a command argument')
+                    return USER_ERROR
+                default_command_load_deja_vu = True
                 sys.argv += new_args
                 return main()
         logger.warning('No command given')
         return USER_ERROR
 
-    current_command = args.command[0]
-    current_arguments = args.command[1:]
-    if current_command in project_aliases:
-        project_aliases[current_command].execute(current_arguments)
-    elif current_command in aliases:
-        aliases[current_command].execute(current_arguments)
-    else:
+    if not parser.may_have([ArgumentGroup.PROJECT_COMMANDS, ArgumentGroup.CUSTOM_COMMANDS, ArgumentGroup.CMD_COMMANDS]):
         logger.warning('The given command ' + uv(current_command) + ' was not found')
         logger.info('run "cmd --help" if you are having trouble')
         return USER_ERROR
@@ -145,17 +146,22 @@ def input_with_prefill(prompt, text, level=TEXT_LEVEL):
 
 # == Commands ====================================================================
 
-def cmd_help(arguments):
-    print_help()
+def cmd_help():
+    if parser.peek():
+        parser.shift()
+        logger.warning('help for arguments is not implemented yet')
+    else:
+        print_help()
     return SUCCESSFULL_EXECUTION
 
-def cmd_version(arguments):
+def cmd_version():
     if complete: return complete_nothing()
     print_str('cmd version ' + version)
+    parser.expect_nothing()
     return SUCCESSFULL_EXECUTION
 
-def cmd_save(arguments):
-    command_to_save = ' '.join(arguments)
+def cmd_save():
+    command_to_save = ' '.join(parser.get_rest())
     edited = False
     if command_to_save == '':
         history_file_location = join(os.environ['HOME'],conf['history_home'])
@@ -179,7 +185,7 @@ def cmd_save(arguments):
     save_json_file(commands_db, simple_commands_file_location)
     return SUCCESSFULL_EXECUTION
 
-def cmd_find(arguments):
+def cmd_find():
     max_cmd_count = 4
     max_cmd_count_slack = 2
     commands_db = load_commands(simple_commands_file_location)
@@ -187,6 +193,7 @@ def cmd_find(arguments):
     try:
         while True:
             print_str((40 * '='))
+            arguments = parser.get_rest()
             if len(arguments) != 0:
                 query = ' '.join(arguments)
                 arguments = []
@@ -228,7 +235,7 @@ def cmd_find(arguments):
         print_str()
     return SUCCESSFULL_EXECUTION
 
-def cmd_complete(arguments):
+def cmd_complete():
     last_arg=sys.argv[-1]
     sys.argv=[sys.argv[0]] + sys.argv[2:-1]
     # print(sys.argv)
@@ -245,7 +252,7 @@ def load_commands(commands_file_location):
     commands_db = load_json_file(commands_file_location)
     return list(map(Command.from_json, commands_db))
 
-def load_aliases():
+def load_aliases(): # todo simplify
     commands_db = load_commands(simple_commands_file_location)
     global aliases
     aliases = {}
@@ -255,7 +262,7 @@ def load_aliases():
             aliases[command.alias]=Command(call_fun(command), command.description)
     return [CommandArgument(cmd) for cmd in commands_db if cmd.alias]
 
-def load_project_aliases():
+def load_project_aliases(): # todo push into the parser
     global project_aliases
     project_aliases = {}
     if project.is_present():
@@ -352,29 +359,6 @@ class Project:
 
 # == Configuration ===============================================================
 
-def setup_argument_handling():
-    global parser
-    class ArgumentParser(argparse.ArgumentParser):  # bad argument exit code override
-        def error(self, message):
-            self.print_usage(sys.stderr)
-            self.exit(INVALID_ARGUMENT, '%s: error: %s\n' % (self.prog, message))
-
-    parser = ArgumentParser(
-            description='Manage custom scripts from a central location',
-            epilog='Run without arguments to get information about available commands',
-            add_help=False,
-            )
-    parser.add_argument('-h', '--help', dest='flag_command', const=cmd_help, action='store_const', help='Request detailed information about flags or commands')
-    parser.add_argument('--version', dest='flag_command', const=cmd_version, action='store_const', help='Prints out version information')
-    parser.add_argument('-s', '--save', dest='flag_command', const=cmd_save, action='store_const', help='Saves command which is passed as further arguments')
-    parser.add_argument('-f', '--find', dest='flag_command', const=cmd_find, action='store_const', help='Opens an interactive search for saved commands')
-    parser.add_argument('--complete', dest='flag_command', const=cmd_complete, action='store_const', help='')
-
-    parser.add_argument('-q', '--quiet', dest='logging_level', const=QUIET_LEVEL, action='store_const', help='no output will be shown')
-    parser.add_argument('-v', '--verbose', dest='logging_level', const=VERBOSE_LEVEL, action='store_const', help='more detailed info')
-    parser.add_argument('-d', '--debug', dest='logging_level', const=logging.DEBUG, action='store_const', help='very detailed messages of script\'s inner workings')
-    parser.add_argument('command', nargs=argparse.REMAINDER, help='command with parameters')
-
 def setup_logging():
     logging.addLevelName(VERBOSE_LEVEL, 'VERBOSE')
     def verbose(self, message, *args, **kws):
@@ -411,15 +395,21 @@ class CommandArgument(Argument):
         if self.help_str: res += '\t' + self.help_str
         return res
 
+def set_function(property_name, value):
+    conf[property_name]=value
+
+def get_set_function(property_name, value):
+    return (lambda : (set_function(property_name, value)))
+
 class FixedArgument(Argument,enum.Enum):
     SAVE = ('--save', '-s', cmd_save, 'Saves command which is passed as further arguments')
     FIND = ('--find', '-f', cmd_find, 'Opens an interactive search for saved commands')
     VER = ('--version', None, cmd_version, 'Prints out version information')
     HELP = ('--help', '-h', cmd_help, 'Request detailed information about flags or commands')
-    COMPLETION = ('--completion', None, cmd_complete, 'Returns list of words which are supplied to the completion shell command')
-    QUIET = ('--quiet', '-q', None, 'no output will be shown')
-    VERBOSE = ('--verbose', '-v', None, 'more detailed output information')
-    DEBUG = ('--debug', '-d', None, 'very detailed messages of script\'s inner workings')
+    COMPLETION = ('--complete', None, cmd_complete, 'Returns list of words which are supplied to the completion shell command')
+    QUIET = ('--quiet', '-q', get_set_function('logging_level', QUIET_LEVEL), 'no output will be shown')
+    VERBOSE = ('--verbose', '-v', get_set_function('logging_level', VERBOSE_LEVEL), 'more detailed output information')
+    DEBUG = ('--debug', '-d', get_set_function('logging_level', logging.DEBUG), 'very detailed messages of script\'s inner workings')
 
     def __init__(self, arg_name:str, short_arg_name:str, function, help_str:str):
         self.arg_name = arg_name
@@ -438,7 +428,7 @@ class FixedArgument(Argument,enum.Enum):
 class ArgumentGroup(enum.Enum):
     PROJECT_COMMANDS = ('project commands', None, load_project_aliases)
     CUSTOM_COMMANDS = ('custom commands', None, load_aliases, 'You may add new custom commands via "cmd --save if the command is given alias, it will show up here')
-    FLAG_COMMANDS = ('management commands', [FixedArgument.SAVE, FixedArgument.FIND, FixedArgument.VER, FixedArgument.HELP])
+    CMD_COMMANDS = ('management commands', [FixedArgument.SAVE, FixedArgument.FIND, FixedArgument.VER, FixedArgument.HELP, FixedArgument.COMPLETION])
     OPTIONAL_ARGUMENTS = ('optional argument', [FixedArgument.QUIET, FixedArgument.VERBOSE, FixedArgument.DEBUG])
 
     def __init__(self, group_name:str, arguments:[Argument]=None, arg_fun=None, if_empty:str=None):
@@ -466,27 +456,40 @@ class ArgumentGroup(enum.Enum):
         
 
 class Parser:
-    def __init__(self):
-        pass
+    def __init__(self, arguments):
+        self.arguments = arguments
 
     def peek(self):
-        return sys.argv[0]
+        if len(self.arguments) != 0:
+            return self.arguments[0]
+        return None
 
-    def shift(self):
-        res = peek()
-        sys.argv = sys.argv[1:]
+    def get_rest(self):
+        res = self.arguments
+        self.arguments = []
         return res
 
-    def argument_may(self, group:ArgumentGroup):
+    def shift(self):
+        res = self.peek()
+        self.arguments = self.arguments[1:]
+        return res
+
+    def expect_nothing(self):
+        cur = self.peek()
+        if cur:
+            raise Exception('unexpected parameter ' + cur)
+
+    def may_have(self, groups:[ArgumentGroup]):
         current = self.peek()
-        for arg in group:
-            if current in [arg.arg_name, arg.short_arg_name]:
-                arg.function()
-
-    def argument_must(self, group:ArgumentGroup):
-        argument_may()
-        raise Exception('argument was expected') # todo make the exception more descriptive
-
+        if current:
+            for group in groups:
+                if group.arguments:
+                    for arg in group.arguments:
+                        if current in [arg.arg_name, arg.short_arg_name]:
+                            self.shift()
+                            arg.function()
+                            return True
+        return False
 
 # == Completion ==================================================================
 
@@ -511,10 +514,10 @@ def complete_nothing():
     return SUCCESSFULL_EXECUTION
 
 def complete_commands():
-    flag_commands = ['--save','--find','--version','--help','--complete','-s','-f','-h']
+    cmd_commands = ['--save','--find','--version','--help','--complete','-s','-f','-h']
     flags = ['-q','-v','-d']
     complete.words += aliases
-    complete.words += flag_commands
+    complete.words += cmd_commands
     complete.words += flags
     return SUCCESSFULL_EXECUTION
 
