@@ -176,19 +176,25 @@ def cmd_save():
     if not edited:
         print_str('Saving command: ' + command_to_save)
 
-    if not exists(simple_commands_file_location):
-        save_json_file([], simple_commands_file_location)
+    if conf['project_scope']:
+        commands_file_location = project.commands_file
+    else:
+        commands_file_location = simple_commands_file_location
+    if not exists(commands_file_location):
+        save_json_file([], commands_file_location)
     alias=input_str('Alias: ')
     description=input_str('Short description: ')
-    commands_db = load_commands(simple_commands_file_location)
+    commands_db = load_commands(commands_file_location)
     commands_db += [Command(command_to_save, description, alias)]
-    save_json_file(commands_db, simple_commands_file_location)
+    save_json_file(commands_db, commands_file_location)
     return SUCCESSFULL_EXECUTION
 
 def cmd_find():
     max_cmd_count = 4
     max_cmd_count_slack = 2
     commands_db = load_commands(simple_commands_file_location)
+    if project.is_present():
+        commands_db += project.commands
     selected_commands = []
     try:
         while True:
@@ -398,7 +404,7 @@ class CommandArgument(Argument):
 def set_function(property_name, value):
     conf[property_name]=value
 
-def get_set_function(property_name, value):
+def create_set_function(property_name, value):
     return (lambda : (set_function(property_name, value)))
 
 class FixedArgument(Argument,enum.Enum):
@@ -407,9 +413,10 @@ class FixedArgument(Argument,enum.Enum):
     VER = ('--version', None, cmd_version, 'Prints out version information')
     HELP = ('--help', '-h', cmd_help, 'Request detailed information about flags or commands')
     COMPLETION = ('--complete', None, cmd_complete, 'Returns list of words which are supplied to the completion shell command')
-    QUIET = ('--quiet', '-q', get_set_function('logging_level', QUIET_LEVEL), 'no output will be shown')
-    VERBOSE = ('--verbose', '-v', get_set_function('logging_level', VERBOSE_LEVEL), 'more detailed output information')
-    DEBUG = ('--debug', '-d', get_set_function('logging_level', logging.DEBUG), 'very detailed messages of script\'s inner workings')
+    QUIET = ('--quiet', '-q', create_set_function('logging_level', QUIET_LEVEL), 'no output will be shown')
+    VERBOSE = ('--verbose', '-v', create_set_function('logging_level', VERBOSE_LEVEL), 'more detailed output information')
+    DEBUG = ('--debug', '-d', create_set_function('logging_level', logging.DEBUG), 'very detailed messages of script\'s inner workings')
+    PROJECT_SCOPE = ('--project', '-p', create_set_function('project_scope', True), 'makes the changes (-s) to the project commands')
 
     def __init__(self, arg_name:str, short_arg_name:str, function, help_str:str):
         self.arg_name = arg_name
@@ -429,7 +436,7 @@ class ArgumentGroup(enum.Enum):
     PROJECT_COMMANDS = ('project commands', None, load_project_aliases)
     CUSTOM_COMMANDS = ('custom commands', None, load_aliases, 'You may add new custom commands via "cmd --save if the command is given alias, it will show up here')
     CMD_COMMANDS = ('management commands', [FixedArgument.SAVE, FixedArgument.FIND, FixedArgument.VER, FixedArgument.HELP, FixedArgument.COMPLETION])
-    OPTIONAL_ARGUMENTS = ('optional argument', [FixedArgument.QUIET, FixedArgument.VERBOSE, FixedArgument.DEBUG])
+    OPTIONAL_ARGUMENTS = ('optional argument', [FixedArgument.QUIET, FixedArgument.VERBOSE, FixedArgument.DEBUG, FixedArgument.PROJECT_SCOPE])
 
     def __init__(self, group_name:str, arguments:[Argument]=None, arg_fun=None, if_empty:str=None):
         self.group_name = group_name
