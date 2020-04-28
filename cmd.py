@@ -42,7 +42,7 @@ simple_commands_file_location = join(script_path, 'commands.json')
 complete = None
 project_context = False # todo ?
 project_root_var = 'project_root'
-default_command_load_deja_vu = False # have you seen the Matrix?
+default_command_load_deja_vu = False
 
 # == Main Logic ==================================================================
 
@@ -51,7 +51,7 @@ def main():
     setup_logging()
     global parser
     parser = Parser(sys.argv)
-    parser.shift() # the program name
+    parser.shift() # skip the program invocation
     while parser.may_have([ArgumentGroup.OPTIONAL_ARGUMENTS]): pass
     logger.setLevel(conf['logging_level'])
     logger.debug('Configuration: ' + str(conf))
@@ -63,7 +63,9 @@ def main():
 
     load_aliases()
     load_project_aliases()
+    return main_command()
 
+def main_command():
     current_command = parser.peek()
 
     if not current_command:
@@ -71,8 +73,8 @@ def main():
         if conf['default_command']:
             new_args = conf['default_command'].split(' ')
             global default_command_load_deja_vu
-            if len(new_args) != 0: # prevent simple loop
-                if default_command_load_deja_vu:
+            if len(new_args) != 0: # prevent doing nothing due to empty default command
+                if default_command_load_deja_vu: # prevent adding default command multiple times
                     logger.warning('The default command is invalid, it must include a command argument')
                     return USER_ERROR
                 default_command_load_deja_vu = True
@@ -95,7 +97,7 @@ def uv(to_print):
 
 def print_help():
     help_str = ''
-    help_str += 'usage: cmd [-q|-v|-d] <command> [<args>]\n'
+    help_str += 'usage: cmd [-q|-v|-d] [-p] <command> [<args>]\n'
     help_str += '\n'
     help_str += 'Manage custom commands from a central location\n'
     print_str(help_str)
@@ -151,6 +153,8 @@ def cmd_help():
         parser.shift()
         logger.warning('help for arguments is not implemented yet')
     else:
+        if complete:
+            return main_command()
         print_help()
     return SUCCESSFULL_EXECUTION
 
@@ -161,18 +165,20 @@ def cmd_version():
     return SUCCESSFULL_EXECUTION
 
 def cmd_save():
-    command_to_save = ' '.join(parser.get_rest())
+    if complete: return complete_nothing()
+    args = parser.get_rest()
     edited = False
-    if command_to_save == '':
+    if len(args) == 0:
         history_file_location = join(os.environ['HOME'],conf['history_home'])
         history_command_in_binary = subprocess.check_output(['tail','-1',history_file_location])
         history_command = history_command_in_binary[:-1].decode("utf-8")
         command_to_save = input_with_prefill('The command to be saved: ', history_command)
-        edited = True
-    if project_context and project.is_present() and exists(command_to_save.split(' ')[0]):
         args = command_to_save.split(' ')
+        edited = True
+    if project_context and project.is_present() and len(args) > 0 and exists(args[0]):
         args[0] = '$' + project_root_var + '/' + os.path.relpath(join(working_directory, args[0]), project.directory) # might have problem with absolute paths
-        command_to_save = ' '.join(args)
+
+    command_to_save = ' '.join(args)
     if not edited:
         print_str('Saving command: ' + command_to_save)
 
@@ -180,6 +186,7 @@ def cmd_save():
         commands_file_location = project.commands_file
     else:
         commands_file_location = simple_commands_file_location
+
     if not exists(commands_file_location):
         save_json_file([], commands_file_location)
     alias=input_str('Alias: ')
@@ -190,6 +197,7 @@ def cmd_save():
     return SUCCESSFULL_EXECUTION
 
 def cmd_find():
+    if complete: return complete_nothing()
     max_cmd_count = 4
     max_cmd_count_slack = 2
     commands_db = load_commands(simple_commands_file_location)
@@ -242,10 +250,10 @@ def cmd_find():
     return SUCCESSFULL_EXECUTION
 
 def cmd_complete():
+    global complete
     last_arg=sys.argv[-1]
     sys.argv=[sys.argv[0]] + sys.argv[2:-1]
-    # print(sys.argv)
-    global complete
+    if complete: return main()
     complete = Complete(last_arg)
     logger.setLevel(QUIET_LEVEL) # fix when set after main() call
     main_res=main()
@@ -386,15 +394,20 @@ def configure():
 # == Argument parser =============================================================
 
 class Argument:
-    def to_str():
-        return 'argument has undefined print'
+    def __init__(self, function):
+        self.function = function
+
+    def to_str(self):
+        return 'argument has an undefined print'
 
 class CommandArgument(Argument):
     def __init__(self, command:Command):
+        super().__init__(lambda : (command.execute()))
         if type(command.alias) is str:
             self.arg_name = command.alias
         self.short_arg_name = None
         self.help_str = command.description
+
     def to_str(self):
         res = self.arg_name
         if self.short_arg_name: res += ', ' + self.short_arg_name
@@ -419,9 +432,9 @@ class FixedArgument(Argument,enum.Enum):
     PROJECT_SCOPE = ('--project', '-p', create_set_function('project_scope', True), 'makes the changes (-s) to the project commands')
 
     def __init__(self, arg_name:str, short_arg_name:str, function, help_str:str):
+        super().__init__(function)
         self.arg_name = arg_name
         self.short_arg_name = short_arg_name
-        self.function = function
         self.help_str = help_str
 
     def to_str(self):
@@ -440,9 +453,17 @@ class ArgumentGroup(enum.Enum):
 
     def __init__(self, group_name:str, arguments:[Argument]=None, arg_fun=None, if_empty:str=None):
         self.group_name = group_name
-        self.arguments = arguments
+        self._arguments = arguments
         self.arg_fun = arg_fun
         self.if_empty = if_empty
+
+    @property
+    def arguments(self):
+        if self._arguments:
+            return self._arguments
+        if self.arg_fun:
+            return self.arg_fun()
+        return None
 
     @staticmethod
     def to_str():
@@ -460,7 +481,6 @@ class ArgumentGroup(enum.Enum):
                 res += group.group_name + ":\n"
                 res += '   ' + group.if_empty + '\n'
         return res
-        
 
 class Parser:
     def __init__(self, arguments):
