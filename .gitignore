@@ -1,4 +1,11 @@
+# user's global commands
 commands.json
+
+# user's configuration
 config_local.json
+
+# this project's commands
+!.cmd/commands.json
+
 *.swp
 

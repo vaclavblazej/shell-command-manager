@@ -1,0 +1,14 @@
+[
+    {
+        "command": "echo \"$PWD\\n$project_root\"",
+        "description": "Test project_root injection",
+        "alias": "proot",
+        "creation_time": "2020-04-10 21:34:28"
+    },
+    {
+        "command": "$project_root/.cmd/test.sh",
+        "description": "Call many invocations of the 'cmd' command to test if majority of things still work",
+        "alias": "test",
+        "creation_time": "2020-05-01 00:00:02"
+    }
+]

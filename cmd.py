@@ -16,6 +16,7 @@
 # * improve search (not only one whole regex)
 # * help for arguments
 # * completion for arguments
+# * think of possible project configuration variables
 # * (seems hard) copy the command into command line instead of executing it
 
 import os, sys, logging, subprocess, enum, json, datetime, re
@@ -39,7 +40,6 @@ project_specific_subfolder = ".cmd"
 version = '0.0.1'
 simple_commands_file_location = join(script_path, 'commands.json')
 complete = None
-project_context = False # todo ?
 project_root_var = 'project_root'
 default_command_load_deja_vu = False
 
@@ -51,7 +51,7 @@ def main():
     global parser
     parser = Parser(sys.argv)
     parser.shift() # skip the program invocation
-    while parser.may_have([ArgumentGroup.OPTIONAL_ARGUMENTS]): pass
+    while parser.may_have([ArgumentGroup.OUTPUT_ARGUMENTS]): pass
     logger.setLevel(conf['logging_level'])
     logger.debug('Configuration: ' + str(conf))
     logger.debug('Script folder: ' + uv(script_path))
@@ -62,6 +62,7 @@ def main():
 
     load_aliases()
     load_project_aliases()
+    while parser.may_have([ArgumentGroup.OTHER_ARGUMENTS]): pass
     return main_command()
 
 def main_command():
@@ -461,6 +462,8 @@ class ArgumentGroup(enum.Enum):
     PROJECT_COMMANDS = ('project commands', None, load_project_aliases)
     CUSTOM_COMMANDS = ('custom commands', None, load_aliases, 'You may add new custom commands via "cmd --save if the command is given alias, it will show up here')
     CMD_COMMANDS = ('management commands', [FixedArgument.SAVE, FixedArgument.FIND, FixedArgument.VER, FixedArgument.HELP, FixedArgument.COMPLETION])
+    OUTPUT_ARGUMENTS = (None, [FixedArgument.QUIET, FixedArgument.VERBOSE, FixedArgument.DEBUG])
+    OTHER_ARGUMENTS = (None, [FixedArgument.PROJECT_SCOPE])
     OPTIONAL_ARGUMENTS = ('optional argument', [FixedArgument.QUIET, FixedArgument.VERBOSE, FixedArgument.DEBUG, FixedArgument.PROJECT_SCOPE])
 
     def __init__(self, group_name:str, arguments:[Argument]=None, arg_fun=None, if_empty:str=None):
@@ -480,7 +483,11 @@ class ArgumentGroup(enum.Enum):
     @staticmethod
     def to_str():
         res = ""
-        for group in ArgumentGroup:
+        to_list = [ArgumentGroup.PROJECT_COMMANDS,
+                ArgumentGroup.CUSTOM_COMMANDS,
+                ArgumentGroup.CMD_COMMANDS,
+                ArgumentGroup.OPTIONAL_ARGUMENTS]
+        for group in to_list:
             if res!='': res += '\n'
             args = group.arguments
             if not args and group.arg_fun:
