@@ -1,5 +1,6 @@
 {
     "history_home": ".bash_history",
     "default_command": "--help",
-    "time_format": "%Y-%m-%d %H:%M:%S"
+    "time_format": "%Y-%m-%d %H:%M:%S",
+    "project_scope": false
 }

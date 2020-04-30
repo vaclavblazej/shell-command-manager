@@ -13,7 +13,6 @@
 # * check correctness or analyse the commands
 
 # === TODOS ===
-# ? allow user to register project scripts
 # * improve search (not only one whole regex)
 # * help for arguments
 # * completion for arguments
@@ -167,19 +166,27 @@ def cmd_version():
 def cmd_save():
     if complete: return complete_nothing()
     args = parser.get_rest()
-    edited = False
-    if len(args) == 0:
+    show_edit = False
+
+    if len(args) == 0: # supply the last command from history
         history_file_location = join(os.environ['HOME'],conf['history_home'])
         history_command_in_binary = subprocess.check_output(['tail','-1',history_file_location])
         history_command = history_command_in_binary[:-1].decode("utf-8")
-        command_to_save = input_with_prefill('The command to be saved: ', history_command)
-        args = command_to_save.split(' ')
-        edited = True
-    if project_context and project.is_present() and len(args) > 0 and exists(args[0]):
-        args[0] = '$' + project_root_var + '/' + os.path.relpath(join(working_directory, args[0]), project.directory) # might have problem with absolute paths
+        args = history_command.split(' ')
+        show_edit = True
+
+    if len(args) > 0 and exists(args[0]): # substitute relative file path for absolute 
+        if conf['project_scope']:
+            args[0] = '$' + project_root_var + '/' + os.path.relpath(join(working_directory, args[0]), project.directory)
+        else:
+            args[0] = os.path.realpath(join(working_directory, args[0]))
+        show_edit = True
 
     command_to_save = ' '.join(args)
-    if not edited:
+
+    if show_edit:
+        edited_command = input_with_prefill('The command to be saved: ', command_to_save)
+    else:
         print_str('Saving command: ' + command_to_save)
 
     if conf['project_scope']:
@@ -420,6 +427,11 @@ def set_function(property_name, value):
 def create_set_function(property_name, value):
     return (lambda : (set_function(property_name, value)))
 
+def enable_project_scope():
+    if not project.is_present():
+        logger.error('Attempting to enable project scope outside the project')
+    conf['project_scope']=True
+
 class FixedArgument(Argument,enum.Enum):
     SAVE = ('--save', '-s', cmd_save, 'Saves command which is passed as further arguments')
     FIND = ('--find', '-f', cmd_find, 'Opens an interactive search for saved commands')
@@ -429,7 +441,7 @@ class FixedArgument(Argument,enum.Enum):
     QUIET = ('--quiet', '-q', create_set_function('logging_level', QUIET_LEVEL), 'no output will be shown')
     VERBOSE = ('--verbose', '-v', create_set_function('logging_level', VERBOSE_LEVEL), 'more detailed output information')
     DEBUG = ('--debug', '-d', create_set_function('logging_level', logging.DEBUG), 'very detailed messages of script\'s inner workings')
-    PROJECT_SCOPE = ('--project', '-p', create_set_function('project_scope', True), 'makes the changes (-s) to the project commands')
+    PROJECT_SCOPE = ('--project', '-p', enable_project_scope, 'makes the changes (-s) to the project commands')
 
     def __init__(self, arg_name:str, short_arg_name:str, function, help_str:str):
         super().__init__(function)
