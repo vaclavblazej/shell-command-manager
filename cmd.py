@@ -404,19 +404,18 @@ def configure():
 # == Argument parser =============================================================
 
 class Argument:
-    def __init__(self, function):
+    def __init__(self, function, arg_name, short_arg_name, help_str):
         self.function = function
+        self.arg_name = arg_name
+        self.short_arg_name = short_arg_name
+        self.help_str = help_str
 
     def to_str(self):
         return 'argument has an undefined print'
 
 class CommandArgument(Argument):
     def __init__(self, command:Command):
-        super().__init__(lambda : (command.execute()))
-        if type(command.alias) is str:
-            self.arg_name = command.alias
-        self.short_arg_name = None
-        self.help_str = command.description
+        super().__init__(lambda : (command.execute()), command.alias, None, command.description)
 
     def to_str(self):
         res = self.arg_name
@@ -447,10 +446,7 @@ class FixedArgument(Argument,enum.Enum):
     PROJECT_SCOPE = ('--project', '-p', enable_project_scope, 'makes the changes (-s) to the project commands')
 
     def __init__(self, arg_name:str, short_arg_name:str, function, help_str:str):
-        super().__init__(function)
-        self.arg_name = arg_name
-        self.short_arg_name = short_arg_name
-        self.help_str = help_str
+        super().__init__(function, arg_name, short_arg_name, help_str)
 
     def to_str(self):
         res = ''
@@ -464,6 +460,7 @@ class ArgumentGroup(enum.Enum):
     PROJECT_COMMANDS = ('project commands', None, load_project_aliases)
     CUSTOM_COMMANDS = ('custom commands', None, load_aliases, 'You may add new custom commands via "cmd --save if the command is given alias, it will show up here')
     CMD_COMMANDS = ('management commands', [FixedArgument.SAVE, FixedArgument.FIND, FixedArgument.VER, FixedArgument.HELP, FixedArgument.COMPLETION])
+    CMD_SHOWN_COMMANDS = ('management commands', [FixedArgument.SAVE, FixedArgument.FIND, FixedArgument.VER, FixedArgument.HELP])
     OUTPUT_ARGUMENTS = (None, [FixedArgument.QUIET, FixedArgument.VERBOSE, FixedArgument.DEBUG])
     OPTIONAL_ARGUMENTS = ('optional argument', [FixedArgument.QUIET, FixedArgument.VERBOSE, FixedArgument.DEBUG, FixedArgument.PROJECT_SCOPE])
 
@@ -486,7 +483,7 @@ class ArgumentGroup(enum.Enum):
         res = ""
         to_list = [ArgumentGroup.PROJECT_COMMANDS,
                 ArgumentGroup.CUSTOM_COMMANDS,
-                ArgumentGroup.CMD_COMMANDS,
+                ArgumentGroup.CMD_SHOWN_COMMANDS,
                 ArgumentGroup.OPTIONAL_ARGUMENTS]
         for group in to_list:
             if res!='': res += '\n'
@@ -567,7 +564,7 @@ def complete_nothing():
     return SUCCESSFULL_EXECUTION
 
 def complete_commands():
-    cmd_commands = ['--save','--find','--version','--help','--complete','-s','-f','-h']
+    cmd_commands = ['--save','--find','--version','--help','-s','-f','-h']
     flags = ['-q','-v','-d']
     complete.words += aliases
     complete.words += cmd_commands
