@@ -17,6 +17,7 @@
 # * help for arguments
 # * completion for arguments
 # * think of possible project configuration variables
+# * fix optional parameter load order
 # * (seems hard) copy the command into command line instead of executing it
 
 import os, sys, logging, subprocess, enum, json, datetime, re
@@ -62,7 +63,7 @@ def main():
 
     load_aliases()
     load_project_aliases()
-    while parser.may_have([ArgumentGroup.OTHER_ARGUMENTS]): pass
+    while parser.may_have([ArgumentGroup.OPTIONAL_ARGUMENTS]): pass
     return main_command()
 
 def main_command():
@@ -84,7 +85,7 @@ def main_command():
         return USER_ERROR
 
     if not parser.may_have([ArgumentGroup.PROJECT_COMMANDS, ArgumentGroup.CUSTOM_COMMANDS, ArgumentGroup.CMD_COMMANDS]):
-        logger.warning('The given command ' + uv(current_command) + ' was not found')
+        logger.warning('The argument/command ' + uv(current_command) + ' was not found')
         logger.info('run "cmd --help" if you are having trouble')
         return USER_ERROR
 
@@ -200,7 +201,7 @@ def cmd_save():
     alias=input_str('Alias: ')
     description=input_str('Short description: ')
     commands_db = load_commands(commands_file_location)
-    commands_db += [Command(command_to_save, description, alias)]
+    commands_db.append(Command(command_to_save, description, alias))
     save_json_file(commands_db, commands_file_location)
     return SUCCESSFULL_EXECUTION
 
@@ -236,7 +237,7 @@ def cmd_find():
                 result = command.find(query)
                 if result is not None:
                     (priority,formatted_text) = result
-                    results += [(priority,formatted_text,command)]
+                    results.append(priority,formatted_text,command)
             total_results_count = len(results)
             if total_results_count==0:
                 print_str('No results found')
@@ -247,7 +248,7 @@ def cmd_find():
                 cmd_showing_count += max_cmd_count_slack
             for result in results[:cmd_showing_count]:
                 (_, text, command) = result
-                selected_commands += [command]
+                selected_commands.append(command)
                 print_str('--- ' + str(index) + ' ' + (30 * '-'))
                 print_str(text, end='')
                 index = index+1
@@ -463,7 +464,6 @@ class ArgumentGroup(enum.Enum):
     CUSTOM_COMMANDS = ('custom commands', None, load_aliases, 'You may add new custom commands via "cmd --save if the command is given alias, it will show up here')
     CMD_COMMANDS = ('management commands', [FixedArgument.SAVE, FixedArgument.FIND, FixedArgument.VER, FixedArgument.HELP, FixedArgument.COMPLETION])
     OUTPUT_ARGUMENTS = (None, [FixedArgument.QUIET, FixedArgument.VERBOSE, FixedArgument.DEBUG])
-    OTHER_ARGUMENTS = (None, [FixedArgument.PROJECT_SCOPE])
     OPTIONAL_ARGUMENTS = ('optional argument', [FixedArgument.QUIET, FixedArgument.VERBOSE, FixedArgument.DEBUG, FixedArgument.PROJECT_SCOPE])
 
     def __init__(self, group_name:str, arguments:[Argument]=None, arg_fun=None, if_empty:str=None):
@@ -503,7 +503,14 @@ class ArgumentGroup(enum.Enum):
 
 class Parser:
     def __init__(self, arguments):
-        self.arguments = arguments
+        self.arguments = []
+        for arg in arguments:
+            add_args = [arg]
+            if len(arg) >= 3 and arg[0]=='-' and arg[1]!='-':
+                add_args = []
+                for a in arg[1:]:
+                    add_args.append('-'+a)
+            self.arguments += add_args
 
     def peek(self):
         if len(self.arguments) != 0:
@@ -528,13 +535,12 @@ class Parser:
     def may_have(self, groups:[ArgumentGroup]):
         current = self.peek()
         if current:
-            for group in groups:
-                if group.arguments:
-                    for arg in group.arguments:
-                        if current in [arg.arg_name, arg.short_arg_name]:
-                            self.shift()
-                            arg.function()
-                            return True
+            for args in [group.arguments for group in groups if group.arguments]:
+                for arg in args:
+                    if current in [arg.arg_name, arg.short_arg_name]:
+                        self.shift()
+                        arg.function()
+                        return True
         return False
 
 # == Completion ==================================================================
@@ -549,7 +555,7 @@ class Complete:
         res_words = []
         for word in self.__words:
             if word.startswith(self.last_arg) and (len(self.last_arg) != 0 or '-'!=word[0]):
-                res_words += [word]
+                res_words.append(word)
         return res_words
 
     @words.setter
