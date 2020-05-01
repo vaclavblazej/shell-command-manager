@@ -331,13 +331,14 @@ class Command:
         else:
             return None
 
-    def execute(self, args=[]):
+    def execute(self, p_args=[]):
+        args = parser.get_rest()
         if project.is_present():
             os.environ[project_root_var] = project.directory
         if type(self.command) is str:
             cmd = self.command
-            print_str('run command: ' + cmd)
-            os.system(self.command)
+            logger.verbose('running command: ' + cmd)
+            os.system(self.command + ' ' + ' '.join(args))
         else:
             self.command(args)
 
