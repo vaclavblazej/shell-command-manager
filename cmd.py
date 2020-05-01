@@ -18,6 +18,7 @@
 # * completion for arguments
 # * think of possible project configuration variables
 # * fix optional parameter load order
+# * improve help output formatting
 # * (seems hard) copy the command into command line instead of executing it
 
 import os, sys, logging, subprocess, enum, json, datetime, re
@@ -93,11 +94,15 @@ def main_command():
 
 # == Formatting ==================================================================
 
+def get_terminal_dimensions():
+    return (os.popen('stty size', 'r').read().split())
+
 def uv(to_print):
     return '"' + str(to_print) + '"'
 
 def print_help():
     help_str = ''
+    help_str += str(get_terminal_dimensions())
     help_str += 'usage: cmd [-q|-v|-d] [-p] <command> [<args>]\n'
     help_str += '\n'
     help_str += 'Manage custom commands from a central location\n'
@@ -215,7 +220,7 @@ def cmd_find():
     selected_commands = []
     try:
         while True:
-            print_str((40 * '='))
+            print_str(40 * '=')
             arguments = parser.get_rest()
             if len(arguments) != 0:
                 query = ' '.join(arguments)
@@ -237,7 +242,7 @@ def cmd_find():
                 result = command.find(query)
                 if result is not None:
                     (priority,formatted_text) = result
-                    results.append(priority,formatted_text,command)
+                    results.append((priority,formatted_text,command))
             total_results_count = len(results)
             if total_results_count==0:
                 print_str('No results found')

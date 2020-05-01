@@ -14,5 +14,12 @@ cmd -d && \
 cmd --project && \
 cmd -p && \
 cmd -pd && \
+cmd --complete '' && \
+cmd --complete --complete '' && \
+cmd --complete --save '' && \
+cmd --complete -s '' && \
+cmd --complete 'e' && \
+cmd --complete 'a' && \
+cmd --complete 't' && \
 echo '>>> Basic tests completed SUCCESFULLY' || \
 echo '>>> Encountered ERROR! see above for what happened'
