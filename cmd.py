@@ -18,7 +18,6 @@
 # * completion for arguments
 # * think of possible project configuration variables
 # * fix optional parameter load order
-# * improve help output formatting
 # * (seems hard) copy the command into command line instead of executing it
 
 import os, sys, logging, subprocess, enum, json, datetime, re
@@ -95,14 +94,14 @@ def main_command():
 # == Formatting ==================================================================
 
 def get_terminal_dimensions():
-    return (os.popen('stty size', 'r').read().split())
+    (height, width) = (os.popen('stty size', 'r').read().split())
+    return (int(width),int(height))
 
 def uv(to_print):
     return '"' + str(to_print) + '"'
 
 def print_help():
     help_str = ''
-    help_str += str(get_terminal_dimensions())
     help_str += 'usage: cmd [-q|-v|-d] [-p] <command> [<args>]\n'
     help_str += '\n'
     help_str += 'Manage custom commands from a central location\n'
@@ -415,18 +414,27 @@ class Argument:
         self.short_arg_name = short_arg_name
         self.help_str = help_str
 
-    def to_str(self):
-        return 'argument has an undefined print'
+    @property
+    def show_name(self):
+        res = self.arg_name
+        if self.short_arg_name:
+            res += ', ' + self.short_arg_name
+        return res
+
+    def to_str(self, position=16):
+        (width, height) = get_terminal_dimensions()
+        offset = max(2,position - len(self.show_name))
+        line = '   ' + self.show_name + (offset * ' ') + self.help_str
+        total = ''
+        while width > position + 10:
+            total += line[:width] + '\n'
+            if len(line) <= width: break
+            line = '   ' + (position * ' ') + '  ' + line[width:]
+        return total
 
 class CommandArgument(Argument):
     def __init__(self, command:Command):
         super().__init__(lambda : (command.execute()), command.alias, None, command.description)
-
-    def to_str(self):
-        res = self.arg_name
-        if self.short_arg_name: res += ', ' + self.short_arg_name
-        if self.help_str: res += '\t' + self.help_str
-        return res
 
 def set_function(property_name, value):
     conf[property_name]=value
@@ -445,21 +453,14 @@ class FixedArgument(Argument,enum.Enum):
     VER = ('--version', None, cmd_version, 'Prints out version information')
     HELP = ('--help', '-h', cmd_help, 'Request detailed information about flags or commands')
     COMPLETION = ('--complete', None, cmd_complete, 'Returns list of words which are supplied to the completion shell command')
-    QUIET = ('--quiet', '-q', create_set_function('logging_level', QUIET_LEVEL), 'no output will be shown')
-    VERBOSE = ('--verbose', '-v', create_set_function('logging_level', VERBOSE_LEVEL), 'more detailed output information')
-    DEBUG = ('--debug', '-d', create_set_function('logging_level', logging.DEBUG), 'very detailed messages of script\'s inner workings')
-    PROJECT_SCOPE = ('--project', '-p', enable_project_scope, 'makes the changes (-s) to the project commands')
+    QUIET = ('--quiet', '-q', create_set_function('logging_level', QUIET_LEVEL), 'No output will be shown')
+    VERBOSE = ('--verbose', '-v', create_set_function('logging_level', VERBOSE_LEVEL), 'More detailed output information')
+    DEBUG = ('--debug', '-d', create_set_function('logging_level', logging.DEBUG), 'Very detailed messages of script\'s inner workings')
+    PROJECT_SCOPE = ('--project', '-p', enable_project_scope, 'Makes the changes (-s) to the project commands')
 
     def __init__(self, arg_name:str, short_arg_name:str, function, help_str:str):
         super().__init__(function, arg_name, short_arg_name, help_str)
 
-    def to_str(self):
-        res = ''
-        res += self.arg_name
-        if self.short_arg_name:
-            res += ', ' + self.short_arg_name
-        res += '\t' + self.help_str
-        return res
     
 class ArgumentGroup(enum.Enum):
     PROJECT_COMMANDS = ('project commands', None, load_project_aliases)
@@ -498,7 +499,7 @@ class ArgumentGroup(enum.Enum):
             if args:
                 res += group.group_name + ":\n"
                 for argument in args:
-                    res += '   ' + argument.to_str() + '\n'
+                    res += argument.to_str()
             elif group.if_empty:
                 res += group.group_name + ":\n"
                 res += '   ' + group.if_empty + '\n'
