@@ -59,11 +59,14 @@ def main():
     logger.debug('Working directory: ' + uv(working_directory))
     logger.debug('Arguments: ' + str(sys.argv))
     global project
-    project = Project(working_directory)
+    project = Project.retrieve_project_if_present(working_directory)
 
     load_aliases()
     load_project_aliases()
     while parser.may_have([ArgumentGroup.OPTIONAL_ARGUMENTS]): pass
+    if conf['scope']=='auto':
+        if project: conf['scope']='project'
+        else: conf['scope']='global'
     return main_command()
 
 def main_command():
@@ -102,7 +105,7 @@ def uv(to_print):
 
 def print_help():
     help_str = ''
-    help_str += 'usage: cmd [-q|-v|-d] [-p] <command> [<args>]\n'
+    help_str += 'usage: cmd [-q|-v|-d] [-p|-g] <command> [<args>]\n'
     help_str += '\n'
     help_str += 'Manage custom commands from a central location\n'
     print_str(help_str)
@@ -182,9 +185,9 @@ def cmd_save():
         show_edit = True
 
     if len(args) > 0 and exists(args[0]): # substitute relative file path for absolute 
-        if conf['project_scope']:
+        if conf['scope']=='project':
             args[0] = '$' + project_root_var + '/' + os.path.relpath(join(working_directory, args[0]), project.directory)
-        else:
+        if conf['scope']=='global':
             args[0] = os.path.realpath(join(working_directory, args[0]))
         show_edit = True
 
@@ -195,10 +198,8 @@ def cmd_save():
     else:
         print_str('Saving command: ' + command_to_save)
 
-    if conf['project_scope']:
-        commands_file_location = project.commands_file
-    else:
-        commands_file_location = simple_commands_file_location
+    if conf['scope']=='project': commands_file_location = project.commands_file
+    if conf['scope']=='global': commands_file_location = simple_commands_file_location
 
     if not exists(commands_file_location):
         save_json_file([], commands_file_location)
@@ -214,7 +215,7 @@ def cmd_find():
     max_cmd_count = 4
     max_cmd_count_slack = 2
     commands_db = load_commands(simple_commands_file_location)
-    if project.is_present():
+    if project:
         commands_db += project.commands
     selected_commands = []
     try:
@@ -292,7 +293,7 @@ def load_aliases(): # todo simplify
 def load_project_aliases(): # todo push into the parser
     global project_aliases
     project_aliases = {}
-    if project.is_present():
+    if project:
         call_fun = lambda cmd : (lambda args : cmd.execute(args))
         for command in project.commands:
             if command.alias:
@@ -337,7 +338,7 @@ class Command:
 
     def execute(self, p_args=[]):
         args = parser.get_rest()
-        if project.is_present():
+        if project:
             os.environ[project_root_var] = project.directory
         if type(self.command) is str:
             cmd = self.command
@@ -347,24 +348,34 @@ class Command:
             self.command(args)
 
 class Project:
-    def __init__(self, search_directory):
-        self.directory = self.find_project_location(search_directory)
-        if self.is_present():
-            self.conf = {
-                    'name': basename(self.directory),
-                    'completion': None
-                    }
-            self.cmd_script_directory = join(self.directory, project_specific_subfolder)
-            self.config_file = join(self.cmd_script_directory, 'config.json')
-            conf.update(load_json_file(self.config_file))
-            self.commands_file = join(self.cmd_script_directory, 'commands.json')
-            self.completion_script = join(self.cmd_script_directory, 'completion.py')
-            self.help_script = join(self.cmd_script_directory, 'help.py')
-            if not exists(self.commands_file):
-                save_json_file([], self.commands_file)
-            self.commands = load_commands(self.commands_file)
+    def __init__(self, directory):
+        if not directory:
+            raise Except('The project directory ' + uv(direcotry) + ' is invalid')
+        self.directory = directory
+        self.conf = {
+                'name': basename(self.directory),
+                'completion': None
+                }
+        self.cmd_script_directory = join(self.directory, project_specific_subfolder)
+        self.config_file = join(self.cmd_script_directory, 'config.json')
+        conf.update(load_json_file(self.config_file))
+        self.commands_file = join(self.cmd_script_directory, 'commands.json')
+        self.completion_script = join(self.cmd_script_directory, 'completion.py')
+        self.help_script = join(self.cmd_script_directory, 'help.py')
+        if not exists(self.commands_file):
+            save_json_file([], self.commands_file)
+        self.commands = load_commands(self.commands_file)
 
-    def find_project_location(self, search_directory):
+    def print_help(self):
+        if exists(self.help_script):
+            run_script([self.help_script])
+        else:
+            print_str('You are in project: ' + self.name)
+            print_str('This project has no explicit help')
+            print_str('Add it by creating a script in \'{project dir}/.cmd/help.py\' which will be executed (to pring help) instead of this message')
+
+    @staticmethod
+    def find_location(search_directory):
         currently_checked_folder = search_directory
         while True:
             possible_project_command_folder = join(currently_checked_folder, project_specific_subfolder)
@@ -374,16 +385,12 @@ class Project:
                 return None # we are in the root directory
             currently_checked_folder = dirname(currently_checked_folder)
 
-    def is_present(self):
-        return self.directory
-
-    def print_help(self):
-        if exists(self.help_script):
-            run_script([self.help_script])
-        else:
-            print_str('You are in project: ' + self.name)
-            print_str('This project has no explicit help')
-            print_str('Add it by creating a script in \'{project dir}/.cmd/help.py\' which will be executed (to pring help) instead of this message')
+    @staticmethod
+    def retrieve_project_if_present(search_directory):
+        project_directory = Project.find_location(search_directory)
+        if project_directory:
+            return Project(project_directory)
+        return None
 
 # == Configuration ===============================================================
 
@@ -412,7 +419,7 @@ class Argument:
         self.function = function
         self.arg_name = arg_name
         self.short_arg_name = short_arg_name
-        self.help_str = help_str
+        self.help_str = help_str or ''
 
     @property
     def show_name(self):
@@ -423,7 +430,7 @@ class Argument:
 
     def to_str(self, position=16):
         (width, height) = get_terminal_dimensions()
-        offset = max(2,position - len(self.show_name))
+        offset = max(2, position - len(self.show_name))
         line = '   ' + self.show_name + (offset * ' ') + self.help_str
         total = ''
         while width > position + 10:
@@ -442,21 +449,21 @@ def set_function(property_name, value):
 def create_set_function(property_name, value):
     return (lambda : (set_function(property_name, value)))
 
-def enable_project_scope():
-    if not project.is_present():
-        logger.error('Attempting to enable project scope outside the project')
-    conf['project_scope']=True
+def set_scope(scope):
+    conf['scope']=scope
 
 class FixedArgument(Argument,enum.Enum):
     SAVE = ('--save', '-s', cmd_save, 'Saves command which is passed as further arguments')
     FIND = ('--find', '-f', cmd_find, 'Opens an interactive search for saved commands')
-    VER = ('--version', None, cmd_version, 'Prints out version information')
+    # REMOVE = ('--remove', '-r', cmd_remove, 'Removes a command')
+    VERSION = ('--version', None, cmd_version, 'Prints out version information')
     HELP = ('--help', '-h', cmd_help, 'Request detailed information about flags or commands')
     COMPLETION = ('--complete', None, cmd_complete, 'Returns list of words which are supplied to the completion shell command')
     QUIET = ('--quiet', '-q', create_set_function('logging_level', QUIET_LEVEL), 'No output will be shown')
     VERBOSE = ('--verbose', '-v', create_set_function('logging_level', VERBOSE_LEVEL), 'More detailed output information')
     DEBUG = ('--debug', '-d', create_set_function('logging_level', logging.DEBUG), 'Very detailed messages of script\'s inner workings')
-    PROJECT_SCOPE = ('--project', '-p', enable_project_scope, 'Makes the changes (-s) to the project commands')
+    PROJECT_SCOPE = ('--project', '-p', lambda : set_scope('project'), 'Applies the command in the project command collection')
+    GLOBAL_SCOPE = ('--global', '-g', lambda : set_scope('global'), 'Applies the command in the global command collection')
 
     def __init__(self, arg_name:str, short_arg_name:str, function, help_str:str):
         super().__init__(function, arg_name, short_arg_name, help_str)
@@ -465,10 +472,10 @@ class FixedArgument(Argument,enum.Enum):
 class ArgumentGroup(enum.Enum):
     PROJECT_COMMANDS = ('project commands', None, load_project_aliases)
     CUSTOM_COMMANDS = ('custom commands', None, load_aliases, 'You may add new custom commands via "cmd --save if the command is given alias, it will show up here')
-    CMD_COMMANDS = ('management commands', [FixedArgument.SAVE, FixedArgument.FIND, FixedArgument.VER, FixedArgument.HELP, FixedArgument.COMPLETION])
-    CMD_SHOWN_COMMANDS = ('management commands', [FixedArgument.SAVE, FixedArgument.FIND, FixedArgument.VER, FixedArgument.HELP])
+    CMD_COMMANDS = ('management commands', [FixedArgument.SAVE, FixedArgument.FIND, FixedArgument.VERSION, FixedArgument.HELP, FixedArgument.COMPLETION])
+    CMD_SHOWN_COMMANDS = ('management commands', [FixedArgument.SAVE, FixedArgument.FIND, FixedArgument.VERSION, FixedArgument.HELP])
     OUTPUT_ARGUMENTS = (None, [FixedArgument.QUIET, FixedArgument.VERBOSE, FixedArgument.DEBUG])
-    OPTIONAL_ARGUMENTS = ('optional argument', [FixedArgument.QUIET, FixedArgument.VERBOSE, FixedArgument.DEBUG, FixedArgument.PROJECT_SCOPE])
+    OPTIONAL_ARGUMENTS = ('optional argument', [FixedArgument.QUIET, FixedArgument.VERBOSE, FixedArgument.DEBUG, FixedArgument.PROJECT_SCOPE, FixedArgument.GLOBAL_SCOPE])
 
     def __init__(self, group_name:str, arguments:[Argument]=None, arg_fun=None, if_empty:str=None):
         self.group_name = group_name
@@ -496,7 +503,7 @@ class ArgumentGroup(enum.Enum):
             args = group.arguments
             if not args and group.arg_fun:
                 args = group.arg_fun()
-            if args:
+            if args and len(args)!=0:
                 res += group.group_name + ":\n"
                 for argument in args:
                     res += argument.to_str()
@@ -573,6 +580,7 @@ def complete_commands():
     cmd_commands = ['--save','--find','--version','--help','-s','-f','-h']
     flags = ['-q','-v','-d']
     complete.words += aliases
+    complete.words += project_aliases
     complete.words += cmd_commands
     complete.words += flags
     return SUCCESSFULL_EXECUTION
