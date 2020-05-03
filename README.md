@@ -23,10 +23,21 @@ Codename:	focal
 
 $ cmd --save
 The command to be saved: lsb_release -a   % note that this was pre-filled from history
+Alias: sysversion
 Short description: Shows the system version
 ```
 
-Use `cmd -f` (or `cmd --find`) to invoke search for commands.
+Run the command either by running the alias directly
+
+```bash
+$ cmd sysversion
+Distributor ID:	Ubuntu
+Description:	Ubuntu 20.04 LTS
+Release:	20.04
+Codename:	focal
+```
+
+or use search `cmd -f` (or `cmd --find`) to find and run the command.
 
 ```bash
 $ cmd --find
