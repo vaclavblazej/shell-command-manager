@@ -58,7 +58,26 @@ Release:	20.04
 Codename:	focal
 ```
 
-To edit the commands or their description, edit the `./<script_location>/commands.json` file.
+To edit the command catalogue run `cmd --edit` which runs `$EDITOR ./<script_location>/commands.json` command or open and edit that file manually.
+
+```bash
+$ cmd --edit
+% The editor opens the content similar to the following
+[
+    {
+        "command": "lsb_release -a",
+        "description": "Show the version number of the system",
+        "alias": "sysversion",
+        "creation_time": "2020-04-11 00:24:27"
+    },
+    {
+        "command": "do-release-upgrade",
+        "description": "Upgrades the system to the newest released version",
+        "alias": "sysupgrade",
+        "creation_time": "2020-04-11 00:25:08"
+    }
+]
+```
 
 ### Completion
 

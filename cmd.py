@@ -39,7 +39,7 @@ global_config_folder = join(script_path, '_config.json')
 local_config_folder = join(script_path, 'config_local.json')
 project_specific_subfolder = ".cmd"
 version = '0.0.1'
-simple_commands_file_location = join(script_path, 'commands.json')
+global_commands_file_location = join(script_path, 'commands.json')
 complete = None
 project_root_var = 'project_root'
 default_command_load_deja_vu = False
@@ -199,7 +199,7 @@ def cmd_save():
         print_str('Saving command: ' + command_to_save)
 
     if conf['scope']=='project': commands_file_location = project.commands_file
-    if conf['scope']=='global': commands_file_location = simple_commands_file_location
+    if conf['scope']=='global': commands_file_location = global_commands_file_location
 
     if not exists(commands_file_location):
         save_json_file([], commands_file_location)
@@ -214,7 +214,7 @@ def cmd_find():
     if complete: return complete_nothing()
     max_cmd_count = 4
     max_cmd_count_slack = 2
-    commands_db = load_commands(simple_commands_file_location)
+    commands_db = load_commands(global_commands_file_location)
     if project:
         commands_db += project.commands
     selected_commands = []
@@ -263,6 +263,11 @@ def cmd_find():
         print_str()
     return SUCCESSFULL_EXECUTION
 
+def cmd_edit():
+    if complete: return complete_nothing()
+    subprocess.run([os.path.expandvars('$EDITOR'), global_commands_file_location])
+    return SUCCESSFULL_EXECUTION
+
 def cmd_complete():
     global complete
     last_arg=sys.argv[-1]
@@ -281,7 +286,7 @@ def load_commands(commands_file_location):
     return list(map(Command.from_json, commands_db))
 
 def load_aliases(): # todo simplify
-    commands_db = load_commands(simple_commands_file_location)
+    commands_db = load_commands(global_commands_file_location)
     global aliases
     aliases = {}
     call_fun = lambda cmd : (lambda args : cmd.execute(args))
@@ -455,6 +460,7 @@ def set_scope(scope):
 class FixedArgument(Argument,enum.Enum):
     SAVE = ('--save', '-s', cmd_save, 'Saves command which is passed as further arguments')
     FIND = ('--find', '-f', cmd_find, 'Opens an interactive search for saved commands')
+    EDIT = ('--edit', '-e', cmd_edit, 'Edit the command databse in text editor')
     # REMOVE = ('--remove', '-r', cmd_remove, 'Removes a command')
     VERSION = ('--version', None, cmd_version, 'Prints out version information')
     HELP = ('--help', '-h', cmd_help, 'Request detailed information about flags or commands')
@@ -472,8 +478,8 @@ class FixedArgument(Argument,enum.Enum):
 class ArgumentGroup(enum.Enum):
     PROJECT_COMMANDS = ('project commands', None, load_project_aliases)
     CUSTOM_COMMANDS = ('custom commands', None, load_aliases, 'You may add new custom commands via "cmd --save if the command is given alias, it will show up here')
-    CMD_COMMANDS = ('management commands', [FixedArgument.SAVE, FixedArgument.FIND, FixedArgument.VERSION, FixedArgument.HELP, FixedArgument.COMPLETION])
-    CMD_SHOWN_COMMANDS = ('management commands', [FixedArgument.SAVE, FixedArgument.FIND, FixedArgument.VERSION, FixedArgument.HELP])
+    CMD_COMMANDS = ('management commands', [FixedArgument.SAVE, FixedArgument.FIND, FixedArgument.EDIT, FixedArgument.VERSION, FixedArgument.HELP, FixedArgument.COMPLETION])
+    CMD_SHOWN_COMMANDS = ('management commands', [FixedArgument.SAVE, FixedArgument.FIND, FixedArgument.EDIT, FixedArgument.VERSION, FixedArgument.HELP])
     OUTPUT_ARGUMENTS = (None, [FixedArgument.QUIET, FixedArgument.VERBOSE, FixedArgument.DEBUG])
     OPTIONAL_ARGUMENTS = ('optional argument', [FixedArgument.QUIET, FixedArgument.VERBOSE, FixedArgument.DEBUG, FixedArgument.PROJECT_SCOPE, FixedArgument.GLOBAL_SCOPE])
 
