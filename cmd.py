@@ -343,7 +343,7 @@ class Command:
         if type(self.command) is str:
             cmd = self.command
             logger.verbose('running command: ' + cmd)
-            os.system(self.command + ' ' + ' '.join(args))
+            subprocess.check_output([os.path.expandvars(self.command)] + args)
         else:
             self.command(args)
 
