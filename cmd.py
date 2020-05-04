@@ -52,7 +52,7 @@ def main():
     global parser
     parser = Parser(sys.argv)
     parser.shift() # skip the program invocation
-    while parser.may_have([ArgumentGroup.OUTPUT_ARGUMENTS]): pass
+    while parser.may_have([FixedArgumentGroup.OUTPUT_ARGUMENTS]): pass
     logger.setLevel(conf['logging_level'])
     logger.debug('Configuration: ' + str(conf))
     logger.debug('Script folder: ' + uv(script_path))
@@ -63,7 +63,7 @@ def main():
 
     load_aliases()
     load_project_aliases()
-    while parser.may_have([ArgumentGroup.OPTIONAL_ARGUMENTS]): pass
+    while parser.may_have([FixedArgumentGroup.OPTIONAL_ARGUMENTS]): pass
     if conf['scope']=='auto':
         if project: conf['scope']='project'
         else: conf['scope']='global'
@@ -87,7 +87,7 @@ def main_command():
         logger.warning('No command given')
         return USER_ERROR
 
-    if not parser.may_have([ArgumentGroup.PROJECT_COMMANDS, ArgumentGroup.CUSTOM_COMMANDS, ArgumentGroup.CMD_COMMANDS]):
+    if not parser.may_have([FixedArgumentGroup.PROJECT_COMMANDS, FixedArgumentGroup.CUSTOM_COMMANDS, FixedArgumentGroup.CMD_COMMANDS]):
         logger.warning('The argument/command ' + uv(current_command) + ' was not found')
         logger.info('run "cmd --help" if you are having trouble')
         return USER_ERROR
@@ -109,7 +109,7 @@ def print_help():
     help_str += '\n'
     help_str += 'Manage custom commands from a central location\n'
     print_str(help_str)
-    print_str(ArgumentGroup.to_str(), end='')
+    print_str(FixedArgumentGroup.to_str(), end='')
     # additional_str = ''
     # print_str(additional_str) #todo print info about very detailed peculiar options (such as --complete)
 
@@ -174,6 +174,8 @@ def cmd_version():
 
 def cmd_save():
     if complete: return complete_nothing()
+    # ar=[Argument(lambda:print('test'), '--alias', '-a', 'test help str')]
+    # parser.may_have([ArgumentGroup('test', ar)])
     args = parser.get_rest()
     show_edit = False
 
@@ -461,7 +463,6 @@ class FixedArgument(Argument,enum.Enum):
     SAVE = ('--save', '-s', cmd_save, 'Saves command which is passed as further arguments')
     FIND = ('--find', '-f', cmd_find, 'Opens an interactive search for saved commands')
     EDIT = ('--edit', '-e', cmd_edit, 'Edit the command databse in text editor')
-    # REMOVE = ('--remove', '-r', cmd_remove, 'Removes a command')
     VERSION = ('--version', None, cmd_version, 'Prints out version information')
     HELP = ('--help', '-h', cmd_help, 'Request detailed information about flags or commands')
     COMPLETION = ('--complete', None, cmd_complete, 'Returns list of words which are supplied to the completion shell command')
@@ -475,20 +476,12 @@ class FixedArgument(Argument,enum.Enum):
         super().__init__(function, arg_name, short_arg_name, help_str)
 
     
-class ArgumentGroup(enum.Enum):
-    PROJECT_COMMANDS = ('project commands', None, load_project_aliases)
-    CUSTOM_COMMANDS = ('custom commands', None, load_aliases, 'You may add new custom commands via "cmd --save if the command is given alias, it will show up here')
-    CMD_COMMANDS = ('management commands', [FixedArgument.SAVE, FixedArgument.FIND, FixedArgument.EDIT, FixedArgument.VERSION, FixedArgument.HELP, FixedArgument.COMPLETION])
-    CMD_SHOWN_COMMANDS = ('management commands', [FixedArgument.SAVE, FixedArgument.FIND, FixedArgument.EDIT, FixedArgument.VERSION, FixedArgument.HELP])
-    OUTPUT_ARGUMENTS = (None, [FixedArgument.QUIET, FixedArgument.VERBOSE, FixedArgument.DEBUG])
-    OPTIONAL_ARGUMENTS = ('optional argument', [FixedArgument.QUIET, FixedArgument.VERBOSE, FixedArgument.DEBUG, FixedArgument.PROJECT_SCOPE, FixedArgument.GLOBAL_SCOPE])
-
+class ArgumentGroup:
     def __init__(self, group_name:str, arguments:[Argument]=None, arg_fun=None, if_empty:str=None):
         self.group_name = group_name
         self._arguments = arguments
         self.arg_fun = arg_fun
         self.if_empty = if_empty
-
     @property
     def arguments(self):
         if self._arguments:
@@ -497,13 +490,25 @@ class ArgumentGroup(enum.Enum):
             return self.arg_fun()
         return None
 
+
+class FixedArgumentGroup(ArgumentGroup,enum.Enum):
+    PROJECT_COMMANDS = ('project commands', None, load_project_aliases)
+    CUSTOM_COMMANDS = ('custom commands', None, load_aliases, 'You may add new custom commands via "cmd --save if the command is given alias, it will show up here')
+    CMD_COMMANDS = ('management commands', [FixedArgument.SAVE, FixedArgument.FIND, FixedArgument.EDIT, FixedArgument.VERSION, FixedArgument.HELP, FixedArgument.COMPLETION])
+    CMD_SHOWN_COMMANDS = ('management commands', [FixedArgument.SAVE, FixedArgument.FIND, FixedArgument.EDIT, FixedArgument.VERSION, FixedArgument.HELP])
+    OUTPUT_ARGUMENTS = (None, [FixedArgument.QUIET, FixedArgument.VERBOSE, FixedArgument.DEBUG])
+    OPTIONAL_ARGUMENTS = ('optional argument', [FixedArgument.QUIET, FixedArgument.VERBOSE, FixedArgument.DEBUG, FixedArgument.PROJECT_SCOPE, FixedArgument.GLOBAL_SCOPE])
+
+    def __init__(self, group_name:str, arguments:[Argument]=None, arg_fun=None, if_empty:str=None):
+        super().__init__(group_name, arguments, arg_fun, if_empty)
+
     @staticmethod
     def to_str():
         res = ""
-        to_list = [ArgumentGroup.PROJECT_COMMANDS,
-                ArgumentGroup.CUSTOM_COMMANDS,
-                ArgumentGroup.CMD_SHOWN_COMMANDS,
-                ArgumentGroup.OPTIONAL_ARGUMENTS]
+        to_list = [FixedArgumentGroup.PROJECT_COMMANDS,
+                FixedArgumentGroup.CUSTOM_COMMANDS,
+                FixedArgumentGroup.CMD_SHOWN_COMMANDS,
+                FixedArgumentGroup.OPTIONAL_ARGUMENTS]
         for group in to_list:
             if res!='': res += '\n'
             args = group.arguments
@@ -597,7 +602,7 @@ def save_json_file(json_content_object, file_location):
     # fail-safe when JSON-serialization fails
     file_string = json.dumps(json_content_object, default=lambda o: o.__dict__, ensure_ascii=False, indent=4)
     with open(file_location, 'w', encoding='utf-8') as f:
-        f.write(file_string)
+        f.write(file_string + '\n')
 
 def load_json_file(file_location):
     try:
