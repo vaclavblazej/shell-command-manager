@@ -1,5 +1,3 @@
-Tool for managing custom commands from a central location.
-
 ## Installation
 
 The setup is not in its final form.

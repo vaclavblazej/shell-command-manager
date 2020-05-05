@@ -13,6 +13,7 @@
 # * check correctness or analyse the commands
 
 # === TODOS ===
+# * print short arguments first
 # * improve search (not only one whole regex)
 # * help for arguments
 # * completion for arguments
@@ -38,7 +39,7 @@ working_directory = os.getcwd()
 global_config_folder = join(script_path, '_config.json')
 local_config_folder = join(script_path, 'config_local.json')
 project_specific_subfolder = ".cmd"
-version = '0.0.1'
+version = '0.0a1-dev1'
 global_commands_file_location = join(script_path, 'commands.json')
 complete = None
 project_root_var = 'project_root'
@@ -430,20 +431,22 @@ class Argument:
 
     @property
     def show_name(self):
-        res = self.arg_name
+        res = ''
         if self.short_arg_name:
-            res += ', ' + self.short_arg_name
+            res += self.short_arg_name + ', '
+        res += self.arg_name
         return res
 
     def to_str(self, position=16):
         (width, height) = get_terminal_dimensions()
+        width -= 2
         offset = max(2, position - len(self.show_name))
         line = '   ' + self.show_name + (offset * ' ') + self.help_str
         total = ''
         while width > position + 10:
             total += line[:width] + '\n'
             if len(line) <= width: break
-            line = '   ' + (position * ' ') + '  ' + line[width:]
+            line = '   ' + (position * ' ') + line[width:]
         return total
 
 class CommandArgument(Argument):
@@ -463,7 +466,7 @@ class FixedArgument(Argument,enum.Enum):
     SAVE = ('--save', '-s', cmd_save, 'Saves command which is passed as further arguments')
     FIND = ('--find', '-f', cmd_find, 'Opens an interactive search for saved commands')
     EDIT = ('--edit', '-e', cmd_edit, 'Edit the command databse in text editor')
-    VERSION = ('--version', None, cmd_version, 'Prints out version information')
+    VERSION = ('--version', '-V', cmd_version, 'Prints out version information')
     HELP = ('--help', '-h', cmd_help, 'Request detailed information about flags or commands')
     COMPLETION = ('--complete', None, cmd_complete, 'Returns list of words which are supplied to the completion shell command')
     QUIET = ('--quiet', '-q', create_set_function('logging_level', QUIET_LEVEL), 'No output will be shown')
