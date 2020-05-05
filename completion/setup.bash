@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
-SCRIPT="$DIR/../cmd.py" # relative to the script location
+SCRIPT="$DIR/../cmd/__main__.py" # relative to the script location
 
 function _my_custom_completion_func {
     trimmed="${COMP_LINE:0:$COMP_POINT}"

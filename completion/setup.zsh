@@ -1,7 +1,7 @@
 #!/usr/bin/env zsh
 
 DIR=$(dirname $0:A)
-SCRIPT="$DIR/../cmd.py" # relative to the script location
+SCRIPT="$DIR/../cmd/__main__.py" # relative to the script location
 
 function _my_custom_completion_func {
     local cmd_string
