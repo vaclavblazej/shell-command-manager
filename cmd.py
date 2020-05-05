@@ -42,6 +42,7 @@ project_specific_subfolder = ".cmd"
 version = '0.0a1-dev1'
 global_commands_file_location = join(script_path, 'commands.json')
 complete = None
+print_help = False
 project_root_var = 'project_root'
 default_command_load_deja_vu = False
 
@@ -75,6 +76,7 @@ def main_command():
 
     if not current_command:
         if complete: return complete_commands()
+        if print_help: return print_general_help()
         if conf['default_command']:
             new_args = conf['default_command'].split(' ')
             global default_command_load_deja_vu
@@ -104,15 +106,21 @@ def get_terminal_dimensions():
 def uv(to_print):
     return '"' + str(to_print) + '"'
 
-def print_help():
+def print_general_help():
     help_str = ''
-    help_str += 'usage: cmd [-q|-v|-d] [-p|-g] <command> [<args>]\n'
+    help_str += 'usage: cmd [-q|-v|-d] [-g|-p] <command> [<args>]\n'
     help_str += '\n'
     help_str += 'Manage custom commands from a central location\n'
     print_str(help_str)
-    print_str(FixedArgumentGroup.to_str(), end='')
+    main_groups = [FixedArgumentGroup.PROJECT_COMMANDS,
+                FixedArgumentGroup.CUSTOM_COMMANDS,
+                FixedArgumentGroup.CMD_SHOWN_COMMANDS,
+                FixedArgumentGroup.OPTIONAL_ARGUMENTS]
+    print_str(ArgumentGroup.to_str(main_groups), end='')
     # additional_str = ''
-    # print_str(additional_str) #todo print info about very detailed peculiar options (such as --complete)
+    # print_str(additional_str) #todo print info including special options (such as --complete)
+        
+    return SUCCESSFULL_EXECUTION
 
 def print_str(text="", level=TEXT_LEVEL, end='\n'):
     if level >= logger.level:
@@ -158,14 +166,11 @@ def input_with_prefill(prompt, text, level=TEXT_LEVEL):
 # == Commands ====================================================================
 
 def cmd_help():
-    if parser.peek():
-        parser.shift()
-        logger.warning('help for arguments is not implemented yet')
-    else:
-        if complete:
-            return main_command()
-        print_help()
-    return SUCCESSFULL_EXECUTION
+    if complete: return main_command()
+    global print_help
+    print_help = True
+    remove_first_argument()
+    return main_command()
 
 def cmd_version():
     if complete: return complete_nothing()
@@ -175,8 +180,14 @@ def cmd_version():
 
 def cmd_save():
     if complete: return complete_nothing()
-    # ar=[Argument(lambda:print('test'), '--alias', '-a', 'test help str')]
-    # parser.may_have([ArgumentGroup('test', ar)])
+    alias = ''
+    description = ''
+    ar = [
+        Argument(lambda:print('TODO'), '--alias', '-a', 'one word shortcut used to invoke the command'),
+        Argument(lambda:print('TODO'), '--descr', '-d', 'few words about the command\'s functionality'),
+        Argument(lambda:print('TODO'), '--', None, 'command to be saved follows'),
+    ]
+    while parser.may_have([ArgumentGroup('test', ar)]): pass
     args = parser.get_rest()
     show_edit = False
 
@@ -206,8 +217,8 @@ def cmd_save():
 
     if not exists(commands_file_location):
         save_json_file([], commands_file_location)
-    alias=input_str('Alias: ')
-    description=input_str('Short description: ')
+    if alias=='': alias=input_str('Alias: ')
+    if description=='': description=input_str('Short description: ')
     commands_db = load_commands(commands_file_location)
     commands_db.append(Command(command_to_save, description, alias))
     save_json_file(commands_db, commands_file_location)
@@ -274,7 +285,7 @@ def cmd_edit():
 def cmd_complete():
     global complete
     last_arg=sys.argv[-1]
-    sys.argv=[sys.argv[0]] + sys.argv[2:-1]
+    remove_first_argument()
     if complete: return main()
     complete = Complete(last_arg)
     logger.setLevel(QUIET_LEVEL) # fix when set after main() call
@@ -485,6 +496,7 @@ class ArgumentGroup:
         self._arguments = arguments
         self.arg_fun = arg_fun
         self.if_empty = if_empty
+
     @property
     def arguments(self):
         if self._arguments:
@@ -492,27 +504,11 @@ class ArgumentGroup:
         if self.arg_fun:
             return self.arg_fun()
         return None
-
-
-class FixedArgumentGroup(ArgumentGroup,enum.Enum):
-    PROJECT_COMMANDS = ('project commands', None, load_project_aliases)
-    CUSTOM_COMMANDS = ('custom commands', None, load_aliases, 'You may add new custom commands via "cmd --save if the command is given alias, it will show up here')
-    CMD_COMMANDS = ('management commands', [FixedArgument.SAVE, FixedArgument.FIND, FixedArgument.EDIT, FixedArgument.VERSION, FixedArgument.HELP, FixedArgument.COMPLETION])
-    CMD_SHOWN_COMMANDS = ('management commands', [FixedArgument.SAVE, FixedArgument.FIND, FixedArgument.EDIT, FixedArgument.VERSION, FixedArgument.HELP])
-    OUTPUT_ARGUMENTS = (None, [FixedArgument.QUIET, FixedArgument.VERBOSE, FixedArgument.DEBUG])
-    OPTIONAL_ARGUMENTS = ('optional argument', [FixedArgument.QUIET, FixedArgument.VERBOSE, FixedArgument.DEBUG, FixedArgument.PROJECT_SCOPE, FixedArgument.GLOBAL_SCOPE])
-
-    def __init__(self, group_name:str, arguments:[Argument]=None, arg_fun=None, if_empty:str=None):
-        super().__init__(group_name, arguments, arg_fun, if_empty)
-
+    
     @staticmethod
-    def to_str():
+    def to_str(groups: []):
         res = ""
-        to_list = [FixedArgumentGroup.PROJECT_COMMANDS,
-                FixedArgumentGroup.CUSTOM_COMMANDS,
-                FixedArgumentGroup.CMD_SHOWN_COMMANDS,
-                FixedArgumentGroup.OPTIONAL_ARGUMENTS]
-        for group in to_list:
+        for group in groups:
             if res!='': res += '\n'
             args = group.arguments
             if not args and group.arg_fun:
@@ -525,6 +521,18 @@ class FixedArgumentGroup(ArgumentGroup,enum.Enum):
                 res += group.group_name + ":\n"
                 res += '   ' + group.if_empty + '\n'
         return res
+
+
+class FixedArgumentGroup(ArgumentGroup,enum.Enum):
+    PROJECT_COMMANDS = ('project commands', None, load_project_aliases)
+    CUSTOM_COMMANDS = ('custom commands', None, load_aliases, 'You may add new custom commands via "cmd --save if the command is given alias, it will show up here')
+    CMD_COMMANDS = ('management commands', [FixedArgument.SAVE, FixedArgument.FIND, FixedArgument.EDIT, FixedArgument.VERSION, FixedArgument.HELP, FixedArgument.COMPLETION])
+    CMD_SHOWN_COMMANDS = ('management commands', [FixedArgument.SAVE, FixedArgument.FIND, FixedArgument.EDIT, FixedArgument.VERSION, FixedArgument.HELP])
+    OUTPUT_ARGUMENTS = ('', [FixedArgument.QUIET, FixedArgument.VERBOSE, FixedArgument.DEBUG])
+    OPTIONAL_ARGUMENTS = ('optional argument', [FixedArgument.QUIET, FixedArgument.VERBOSE, FixedArgument.DEBUG, FixedArgument.PROJECT_SCOPE, FixedArgument.GLOBAL_SCOPE])
+
+    def __init__(self, group_name:str, arguments:[Argument]=None, arg_fun=None, if_empty:str=None):
+        super().__init__(group_name, arguments, arg_fun, if_empty)
 
 class Parser:
     def __init__(self, arguments):
@@ -543,6 +551,8 @@ class Parser:
         return None
 
     def get_rest(self):
+        if print_help:
+            exit(SUCCESSFULL_EXECUTION)
         res = self.arguments
         self.arguments = []
         return res
@@ -566,7 +576,13 @@ class Parser:
                         self.shift()
                         arg.function()
                         return True
+        elif print_help:
+            print_str(ArgumentGroup.to_str(groups), end='')
+            exit(SUCCESSFULL_EXECUTION)
         return False
+
+def remove_first_argument():
+    sys.argv=[sys.argv[0]] + sys.argv[2:]
 
 # == Completion ==================================================================
 
