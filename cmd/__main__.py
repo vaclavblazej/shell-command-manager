@@ -34,7 +34,7 @@ TEXT_LEVEL = 30
 QUIET_LEVEL = 60
 
 conf = { 'logging_level': logging.INFO, }  # logging is set up before config loads
-script_path = dirname(realpath(__file__))
+script_path = dirname(dirname(realpath(__file__)))
 working_directory = os.getcwd()
 global_config_folder = join(script_path, '_config.json')
 local_config_folder = join(script_path, 'config_local.json')
