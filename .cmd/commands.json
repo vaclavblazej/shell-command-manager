@@ -1,6 +1,6 @@
 [
     {
-        "command": "echo \"$PWD\\n$project_root\"",
+        "command": "echo \"pwd:$PWD\\npr:$project_root\"",
         "description": "Test project_root injection",
         "alias": "proot",
         "creation_time": "2020-04-10 21:34:28"

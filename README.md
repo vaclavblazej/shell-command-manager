@@ -1,16 +1,48 @@
+DISCLAIMER (WORK IN PROGRESS):
+As of May 2020 this project is work in progress.
+The alpha release is planned for June.
+
+It **IS** designed to
+
+* make a clear overview of custom-made commands
+* provide a common user interface for the commands
+* provide a clear way to create scripts which work well with this tool
+
+It **IS NOT** designed to
+
+* provide standard functions or libraries to be used in the custom-made commands
+* check correctness or analyse the commands
+
+## TODOs
+
+* split the structure into modules, make them bite-sized and logical
+* fix over-escaping, e.g. in 'proot' test command
+* improve search (not only one whole regex)
+* help for arguments
+* completion for arguments
+* think of possible project configuration variables
+* fix optional parameter load order
+* (seems hard) copy the command into command line instead of executing it
+* release 0.1a1-dev1 to pypi and get it tested by somebody else
+
 ## Installation
 
-The setup is not in its final form.
-The current setup procedure is to download the git repository and create a sym-link.
+For stable release, run
+
+```bash
+pip3 install cmd
+```
+
+For latest and in-development version, you may sym-link code from the repository directly.
 
 ```bash
 git clone https://github.com/vaclavblazej/command.git
-ln -s ./command/cmd.py ~/bin/cmd
+ln -s ./command/cmd/__main__.py ~/bin/cmd
 ```
 
 ## Basic usage
 
-Use `cmd -s` (or `cmd --save`) to catalogue a command.
+Use `cmd -s` (or `cmd --save`) to catalogue a command. For example `lsb_release -a`.
 
 ```bash
 $ lsb_release -a
@@ -25,7 +57,7 @@ Alias: sysversion
 Short description: Shows the system version
 ```
 
-Run the command either by running the alias directly
+Run the command either by invoking the alias
 
 ```bash
 $ cmd sysversion
@@ -56,7 +88,7 @@ Release:	20.04
 Codename:	focal
 ```
 
-To edit the command catalogue run `cmd --edit` which runs `$EDITOR ./<script_location>/commands.json` command or open and edit that file manually.
+To edit the command catalogue run `cmd --edit` which runs `$EDITOR ./<script_location>/commands.json` command or open and edit the catalogue file manually.
 
 ```bash
 $ cmd --edit
@@ -79,7 +111,8 @@ $ cmd --edit
 
 ### Completion
 
-You can setup completion by adding `source ./<script_location>/completion/setup.bash` or `setup.zsh` depending on your shell `rc` script.
+You can setup completion by adding `source ./<script_location>/completion/setup.<your shell>` into your `rc` script.
+Supported shells are `bash` and `zsh`.
 
 ```bash
 echo "source \"$PWD/command/completion/setup.bash\"" >> ~/.bashrc
@@ -88,6 +121,8 @@ echo "source \"$PWD/command/completion/setup.bash\"" >> ~/.bashrc
 ```zsh
 echo "source \"$PWD/command/completion/setup.zsh\"" >> ~/.zshrc
 ```
+
+---
 
 ## Advanced usage
 
@@ -118,6 +153,5 @@ It prints a string to standard output which describes what our current command d
 Completion is invoked by calling `script --complete <arguments>` and prints out the list of words which are sensible arguments in the next places.
 The last argument is considered as *argument prefix* and is used to filter out possible words.
 If no filtering is wanted, the last argument should be empty-string.
-
 
 

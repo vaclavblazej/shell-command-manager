@@ -9,4 +9,5 @@ config_local.json
 
 # vim temporary edit files
 *.swp
+__pycache__
 

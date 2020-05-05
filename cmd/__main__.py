@@ -1,56 +1,33 @@
 #!/usr/bin/env python3
-# Keep the program in a single file with at most 1000 lines, if possible.
 
-# This script provides management for custom scripts from a central location
-
-# It IS designed to
-# * make a clear overview of custom-made commands
-# * provide a common user interface for the commands
-# * provide a clear way to create a scripts which work well with this tool
-
-# It IS NOT designed to
-# * provide standard functions or libraries to be used in the commands
-# * check correctness or analyse the commands
-
-# === TODOS ===
-# * print short arguments first
-# * improve search (not only one whole regex)
-# * help for arguments
-# * completion for arguments
-# * think of possible project configuration variables
-# * fix optional parameter load order
-# * (seems hard) copy the command into command line instead of executing it
-
-import os, sys, logging, subprocess, enum, json, datetime, re
-import readline # enables prefill for the input() method
+import os, sys, subprocess, enum, datetime, shlex
+from string import Template
 from os.path import *
+
+import util, config, cio, filemanip, structure
+from cio import uv, print_str, input_str, input_with_prefill, search_and_format
+from structure import Command, Project
 
 SUCCESSFULL_EXECUTION = 0
 USER_ERROR = 1 # argument format is fine, but content is wrong
 INVALID_ARGUMENT = 129 # argument format is wrong
 
-VERBOSE_LEVEL = 15
-TEXT_LEVEL = 30
-QUIET_LEVEL = 60
-
-conf = { 'logging_level': logging.INFO, }  # logging is set up before config loads
 script_path = dirname(dirname(realpath(__file__)))
 working_directory = os.getcwd()
-global_config_folder = join(script_path, '_config.json')
-local_config_folder = join(script_path, 'config_local.json')
-project_specific_subfolder = ".cmd"
 version = '0.0a1-dev1'
 global_commands_file_location = join(script_path, 'commands.json')
 complete = None
 print_help = False
 project_root_var = 'project_root'
 default_command_load_deja_vu = False
+conf = config.get_conf()
 
 # == Main Logic ==================================================================
 
 def main():
-    configure()
-    setup_logging()
+    config.setup_logging()
+    global logger
+    logger = config.get_logger()
     global parser
     parser = Parser(sys.argv)
     parser.shift() # skip the program invocation
@@ -99,13 +76,6 @@ def main_command():
 
 # == Formatting ==================================================================
 
-def get_terminal_dimensions():
-    (height, width) = (os.popen('stty size', 'r').read().split())
-    return (int(width),int(height))
-
-def uv(to_print):
-    return '"' + str(to_print) + '"'
-
 def print_general_help():
     help_str = ''
     help_str += 'usage: cmd [-q|-v|-d] [-g|-p] <command> [<args>]\n'
@@ -121,47 +91,6 @@ def print_general_help():
     # print_str(additional_str) #todo print info including special options (such as --complete)
         
     return SUCCESSFULL_EXECUTION
-
-def print_str(text="", level=TEXT_LEVEL, end='\n'):
-    if level >= logger.level:
-        print(text, end=end)
-
-def input_str(text="", level=TEXT_LEVEL, end=''):
-    prompt = ''
-    if level >= logger.level: prompt = text
-    return input(prompt)
-
-def search_and_format(pattern:str, text:str) -> (int, str):
-    if text is None:
-        return (0, "")
-    priority = 0
-    occurences = list(re.finditer(pattern, text, re.I))
-    color_format = '\033[{0}m'
-    color_str = color_format.format(31) # red color
-    reset_str = color_format.format(0) # default color
-    last_match = 0
-    formatted_text = ''
-    for match in occurences:
-        start, end = match.span()
-        formatted_text += text[last_match: start]
-        formatted_text += color_str
-        formatted_text += text[start: end]
-        formatted_text += reset_str
-        last_match = end
-    formatted_text += text[last_match:]
-    priority += len(occurences)
-    return (priority, formatted_text)
-
-# https://stackoverflow.com/questions/8505163/is-it-possible-to-prefill-a-input-in-python-3s-command-line-interface
-def input_with_prefill(prompt, text, level=TEXT_LEVEL):
-    if not level >= logger.level: prompt = ''
-    def hook():
-        readline.insert_text(text)
-        readline.redisplay()
-    readline.set_pre_input_hook(hook)
-    result = input(prompt)
-    readline.set_pre_input_hook()
-    return result
 
 # == Commands ====================================================================
 
@@ -216,12 +145,12 @@ def cmd_save():
     if conf['scope']=='global': commands_file_location = global_commands_file_location
 
     if not exists(commands_file_location):
-        save_json_file([], commands_file_location)
+        filemanip.save_json_file([], commands_file_location)
     if alias=='': alias=input_str('Alias: ')
     if description=='': description=input_str('Short description: ')
     commands_db = load_commands(commands_file_location)
     commands_db.append(Command(command_to_save, description, alias))
-    save_json_file(commands_db, commands_file_location)
+    filemanip.save_json_file(commands_db, commands_file_location)
     return SUCCESSFULL_EXECUTION
 
 def cmd_find():
@@ -288,7 +217,7 @@ def cmd_complete():
     remove_first_argument()
     if complete: return main()
     complete = Complete(last_arg)
-    logger.setLevel(QUIET_LEVEL) # fix when set after main() call
+    logger.setLevel(config.QUIET_LEVEL) # fix when set after main() call
     main_res=main()
     for word in complete.words:
         print(word, end=' ')
@@ -296,7 +225,7 @@ def cmd_complete():
     return main_res
 
 def load_commands(commands_file_location):
-    commands_db = load_json_file(commands_file_location)
+    commands_db = filemanip.load_json_file(commands_file_location)
     return list(map(Command.from_json, commands_db))
 
 def load_aliases(): # todo simplify
@@ -320,117 +249,6 @@ def load_project_aliases(): # todo push into the parser
         return [CommandArgument(cmd) for cmd in project.commands if cmd.alias]
     return None
 
-# == Structure ===================================================================
-
-class Command:
-    # command can be either str, or a function (str[]) -> None
-    def __init__(self, command:any, description:str = None, alias:str = None, creation_time:str = None):
-        self.command = command
-        if description=='': description = None
-        self.description = description
-        if alias=='': alias = None
-        self.alias = alias
-        if creation_time is None: creation_time = str(datetime.datetime.now().strftime(conf['time_format']))
-        self.creation_time = creation_time
-
-    @classmethod
-    def from_json(cls, data):
-        return cls(**data)
-
-    def find(self, query):
-        to_check = [
-                # {'name':'ali','field':self.alias},
-                {'name':'cmd','field':self.command},
-                {'name':'des','field':self.description},
-                # {'name':'ctm','field':self.creation_time},
-                ]
-        total_priority = 0
-        total_formatted_output = ""
-        for check in to_check:
-            (priority, formatted_output) = search_and_format(query, check['field'])
-            total_priority += priority
-            total_formatted_output += check['name'] + ': ' + formatted_output + '\n'
-        if total_priority != 0:
-            return (total_priority,total_formatted_output)
-        else:
-            return None
-
-    def execute(self, p_args=[]):
-        args = parser.get_rest()
-        if project:
-            os.environ[project_root_var] = project.directory
-        if type(self.command) is str:
-            cmd = self.command
-            logger.verbose('running command: ' + cmd)
-            subprocess.check_output([os.path.expandvars(self.command)] + args)
-        else:
-            self.command(args)
-
-class Project:
-    def __init__(self, directory):
-        if not directory:
-            raise Except('The project directory ' + uv(direcotry) + ' is invalid')
-        self.directory = directory
-        self.conf = {
-                'name': basename(self.directory),
-                'completion': None
-                }
-        self.cmd_script_directory = join(self.directory, project_specific_subfolder)
-        self.config_file = join(self.cmd_script_directory, 'config.json')
-        conf.update(load_json_file(self.config_file))
-        self.commands_file = join(self.cmd_script_directory, 'commands.json')
-        self.completion_script = join(self.cmd_script_directory, 'completion.py')
-        self.help_script = join(self.cmd_script_directory, 'help.py')
-        if not exists(self.commands_file):
-            save_json_file([], self.commands_file)
-        self.commands = load_commands(self.commands_file)
-
-    def print_help(self):
-        if exists(self.help_script):
-            run_script([self.help_script])
-        else:
-            print_str('You are in project: ' + self.name)
-            print_str('This project has no explicit help')
-            print_str('Add it by creating a script in \'{project dir}/.cmd/help.py\' which will be executed (to pring help) instead of this message')
-
-    @staticmethod
-    def find_location(search_directory):
-        currently_checked_folder = search_directory
-        while True:
-            possible_project_command_folder = join(currently_checked_folder, project_specific_subfolder)
-            if exists(possible_project_command_folder):
-                return currently_checked_folder
-            if currently_checked_folder == dirname(currently_checked_folder):
-                return None # we are in the root directory
-            currently_checked_folder = dirname(currently_checked_folder)
-
-    @staticmethod
-    def retrieve_project_if_present(search_directory):
-        project_directory = Project.find_location(search_directory)
-        if project_directory:
-            return Project(project_directory)
-        return None
-
-# == Configuration ===============================================================
-
-def setup_logging():
-    logging.addLevelName(VERBOSE_LEVEL, 'VERBOSE')
-    def verbose(self, message, *args, **kws):
-        if self.isEnabledFor(VERBOSE_LEVEL):
-            self._log(VERBOSE_LEVEL, message, args, **kws)
-    logging.Logger.verbose = verbose
-    global logger
-    logger = logging.getLogger()
-    ch = logging.StreamHandler()
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-    ch.setFormatter(formatter)
-    logger.addHandler(ch)
-
-def configure():
-    conf.update(load_json_file(global_config_folder))
-    conf.update(load_json_file(local_config_folder))
-    return
-
 # == Argument parser =============================================================
 
 class Argument:
@@ -449,7 +267,7 @@ class Argument:
         return res
 
     def to_str(self, position=16):
-        (width, height) = get_terminal_dimensions()
+        (width, height) = util.get_terminal_dimensions()
         width -= 2
         offset = max(2, position - len(self.show_name))
         line = '   ' + self.show_name + (offset * ' ') + self.help_str
@@ -480,9 +298,9 @@ class FixedArgument(Argument,enum.Enum):
     VERSION = ('--version', '-V', cmd_version, 'Prints out version information')
     HELP = ('--help', '-h', cmd_help, 'Request detailed information about flags or commands')
     COMPLETION = ('--complete', None, cmd_complete, 'Returns list of words which are supplied to the completion shell command')
-    QUIET = ('--quiet', '-q', create_set_function('logging_level', QUIET_LEVEL), 'No output will be shown')
-    VERBOSE = ('--verbose', '-v', create_set_function('logging_level', VERBOSE_LEVEL), 'More detailed output information')
-    DEBUG = ('--debug', '-d', create_set_function('logging_level', logging.DEBUG), 'Very detailed messages of script\'s inner workings')
+    QUIET = ('--quiet', '-q', create_set_function('logging_level', config.QUIET_LEVEL), 'No output will be shown')
+    VERBOSE = ('--verbose', '-v', create_set_function('logging_level', config.VERBOSE_LEVEL), 'More detailed output information')
+    DEBUG = ('--debug', '-d', create_set_function('logging_level', config.DEBUG_LEVEL), 'Very detailed messages of script\'s inner workings')
     PROJECT_SCOPE = ('--project', '-p', lambda : set_scope('project'), 'Applies the command in the project command collection')
     GLOBAL_SCOPE = ('--global', '-g', lambda : set_scope('global'), 'Applies the command in the global command collection')
 
@@ -614,22 +432,6 @@ def complete_commands():
     complete.words += cmd_commands
     complete.words += flags
     return SUCCESSFULL_EXECUTION
-
-# == File Manipulation ===========================================================
-
-def save_json_file(json_content_object, file_location):
-    # fail-safe when JSON-serialization fails
-    file_string = json.dumps(json_content_object, default=lambda o: o.__dict__, ensure_ascii=False, indent=4)
-    with open(file_location, 'w', encoding='utf-8') as f:
-        f.write(file_string + '\n')
-
-def load_json_file(file_location):
-    try:
-        with open(file_location) as json_file:
-            data = json.load(json_file)
-    except FileNotFoundError:
-        return dict()
-    return data
 
 # == Core Script Logic Chunks ====================================================
 
