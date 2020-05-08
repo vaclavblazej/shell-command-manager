@@ -1,18 +1,19 @@
-import setuptools
+# import setuptools
+from setuptools import setup, find_packages
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-setuptools.setup(
+setup(
     name="shell-command-management",
-    version="0.0a1-dev1",
+    version="0.0a1.dev1",
     author="Václav Blažej",
     author_email="vaclavblazej@seznam.cz",
     description="Tool for managing custom commands from a central location",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/vaclavblazej/command",
-    packages="cmd",
+    packages=find_packages(include=['shcmdmgr']),
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
         "Intended Audience :: Developers",
@@ -22,10 +23,10 @@ setuptools.setup(
         "Operating System :: POSIX :: Linux",
         "Topic :: Utilities",
     ],
-    python_requires='>=3.8',
+    python_requires=">=3.8",
     entry_points={
             "console_scripts": [
-                "cmd = cmd.__main__:main",
+                "cmd = shcmdmgr.__main__:main",
             ]
         }
 )

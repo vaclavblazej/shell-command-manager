@@ -13,6 +13,7 @@ QUIET_LEVEL = 60
 INFO_LEVEL = logging.INFO
 DEBUG_LEVEL = logging.DEBUG
 conf = None
+version = '0.0a1.dev1'
 
 def setup_logging():
     logging.addLevelName(VERBOSE_LEVEL, 'VERBOSE')
@@ -35,4 +36,5 @@ def get_conf():
     conf = { 'logging_level': INFO_LEVEL, }  # logging basic set up before config loads
     conf.update(filemanip.load_json_file(global_config_folder))
     conf.update(filemanip.load_json_file(local_config_folder))
+    return conf
 

@@ -12,7 +12,7 @@
         "creation_time": "2020-05-01 00:00:02"
     },
     {
-        "command": "$project_root/cmd",
+        "command": "$project_root/.cmd/build.sh",
         "description": "Buidls the project into a package in build/ folder",
         "alias": "build",
         "creation_time": "2020-05-05 18:54:24"

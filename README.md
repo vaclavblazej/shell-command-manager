@@ -30,14 +30,14 @@ It **IS NOT** designed to
 For stable release, run
 
 ```bash
-pip3 install cmd
+pip3 install shcmdmgr
 ```
 
 For latest and in-development version, you may sym-link code from the repository directly.
 
 ```bash
 git clone https://github.com/vaclavblazej/command.git
-ln -s ./command/cmd/__main__.py ~/bin/cmd
+ln -s ./command/shcmdmgr/__main__.py ~/bin/cmd
 ```
 
 ## Basic usage

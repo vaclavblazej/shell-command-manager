@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
-import os, sys, subprocess, enum, datetime, shlex
-from string import Template
+import os, sys, subprocess, enum
 from os.path import *
 
-import util, config, cio, filemanip, structure
+import util, config, cio, filemanip, structure, cmdcomplete
 from cio import uv, print_str, input_str, input_with_prefill, search_and_format
 from structure import Command, Project
+from cmdcomplete import Complete
 
 SUCCESSFULL_EXECUTION = 0
 USER_ERROR = 1 # argument format is fine, but content is wrong
@@ -14,7 +14,6 @@ INVALID_ARGUMENT = 129 # argument format is wrong
 
 script_path = dirname(dirname(realpath(__file__)))
 working_directory = os.getcwd()
-version = '0.0a1-dev1'
 global_commands_file_location = join(script_path, 'commands.json')
 complete = None
 print_help = False
@@ -39,6 +38,7 @@ def main():
     logger.debug('Arguments: ' + str(sys.argv))
     global project
     project = Project.retrieve_project_if_present(working_directory)
+    if project: os.environ[project_root_var] = project.directory
 
     load_aliases()
     load_project_aliases()
@@ -103,7 +103,7 @@ def cmd_help():
 
 def cmd_version():
     if complete: return complete_nothing()
-    print_str('cmd version ' + version)
+    print_str('cmd version ' + config.version)
     parser.expect_nothing()
     return SUCCESSFULL_EXECUTION
 
@@ -148,7 +148,7 @@ def cmd_save():
         filemanip.save_json_file([], commands_file_location)
     if alias=='': alias=input_str('Alias: ')
     if description=='': description=input_str('Short description: ')
-    commands_db = load_commands(commands_file_location)
+    commands_db = structure.load_commands(commands_file_location)
     commands_db.append(Command(command_to_save, description, alias))
     filemanip.save_json_file(commands_db, commands_file_location)
     return SUCCESSFULL_EXECUTION
@@ -157,7 +157,7 @@ def cmd_find():
     if complete: return complete_nothing()
     max_cmd_count = 4
     max_cmd_count_slack = 2
-    commands_db = load_commands(global_commands_file_location)
+    commands_db = structure.load_commands(global_commands_file_location)
     if project:
         commands_db += project.commands
     selected_commands = []
@@ -175,7 +175,7 @@ def cmd_find():
                 if idx not in range(1,len(selected_commands)+1):
                     print_str('invalid index')
                     continue
-                selected_commands[idx-1].execute() # todo add arguments ?
+                selected_commands[idx-1].execute(parser.get_rest())
                 return
             except ValueError as e:
                 pass
@@ -216,7 +216,7 @@ def cmd_complete():
     last_arg=sys.argv[-1]
     remove_first_argument()
     if complete: return main()
-    complete = Complete(last_arg)
+    complete = cmdcomplete.get_complete(last_arg)
     logger.setLevel(config.QUIET_LEVEL) # fix when set after main() call
     main_res=main()
     for word in complete.words:
@@ -224,12 +224,8 @@ def cmd_complete():
     print()
     return main_res
 
-def load_commands(commands_file_location):
-    commands_db = filemanip.load_json_file(commands_file_location)
-    return list(map(Command.from_json, commands_db))
-
 def load_aliases(): # todo simplify
-    commands_db = load_commands(global_commands_file_location)
+    commands_db = structure.load_commands(global_commands_file_location)
     global aliases
     aliases = {}
     call_fun = lambda cmd : (lambda args : cmd.execute(args))
@@ -248,6 +244,20 @@ def load_project_aliases(): # todo push into the parser
                 project_aliases[command.alias]=Command(call_fun(command), command.description)
         return [CommandArgument(cmd) for cmd in project.commands if cmd.alias]
     return None
+
+# == Completion ==================================================================
+
+def complete_nothing():
+    return SUCCESSFULL_EXECUTION
+
+def complete_commands():
+    cmd_commands = ['--save','--find','--version','--help','-s','-f','-h']
+    flags = ['-q','-v','-d']
+    complete.words += aliases
+    complete.words += project_aliases
+    complete.words += cmd_commands
+    complete.words += flags
+    return SUCCESSFULL_EXECUTION
 
 # == Argument parser =============================================================
 
@@ -280,7 +290,7 @@ class Argument:
 
 class CommandArgument(Argument):
     def __init__(self, command:Command):
-        super().__init__(lambda : (command.execute()), command.alias, None, command.description)
+        super().__init__(lambda : (command.execute(parser.get_rest())), command.alias, None, command.description)
 
 def set_function(property_name, value):
     conf[property_name]=value
@@ -401,37 +411,6 @@ class Parser:
 
 def remove_first_argument():
     sys.argv=[sys.argv[0]] + sys.argv[2:]
-
-# == Completion ==================================================================
-
-class Complete:
-    def __init__(self, last_arg):
-        self.last_arg = last_arg
-        self.words = []
-
-    @property
-    def words(self):
-        res_words = []
-        for word in self.__words:
-            if word.startswith(self.last_arg) and (len(self.last_arg) != 0 or '-'!=word[0]):
-                res_words.append(word)
-        return res_words
-
-    @words.setter
-    def words(self, words):
-        self.__words = words
-
-def complete_nothing():
-    return SUCCESSFULL_EXECUTION
-
-def complete_commands():
-    cmd_commands = ['--save','--find','--version','--help','-s','-f','-h']
-    flags = ['-q','-v','-d']
-    complete.words += aliases
-    complete.words += project_aliases
-    complete.words += cmd_commands
-    complete.words += flags
-    return SUCCESSFULL_EXECUTION
 
 # == Core Script Logic Chunks ====================================================
 

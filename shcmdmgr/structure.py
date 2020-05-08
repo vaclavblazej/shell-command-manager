@@ -1,9 +1,17 @@
 project_specific_subfolder = ".cmd"
+import os, datetime, shlex, subprocess
 from os.path import *
+from string import Template
 
 import config
+import filemanip
 
+logger = config.get_logger()
 conf=config.get_conf()
+
+def load_commands(commands_file_location):
+    commands_db = filemanip.load_json_file(commands_file_location)
+    return list(map(Command.from_json, commands_db))
 
 # == Structure ===================================================================
 
@@ -40,10 +48,7 @@ class Command:
         else:
             return None
 
-    def execute(self, p_args=[]):
-        args = parser.get_rest()
-        if project:
-            os.environ[project_root_var] = project.directory
+    def execute(self, args=[]):
         if type(self.command) is str:
             logger.verbose('running command: ' + self.command)
             cmd_subs=Template(self.command).substitute(os.environ)
