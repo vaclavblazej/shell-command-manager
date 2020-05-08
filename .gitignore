@@ -10,4 +10,6 @@ config_local.json
 # vim temporary edit files
 *.swp
 __pycache__
+dist/
+shell_command_management.egg-info/
 
