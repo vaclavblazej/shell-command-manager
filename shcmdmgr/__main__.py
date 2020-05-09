@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 #
 #    shell-command-management
 #    Tool for managing custom commands from a central location
@@ -48,7 +49,6 @@ ALIASES = None
 # == Main Logic ==================================================================
 
 def main():
-    config.setup_logging()
     global LOGGER
     LOGGER = config.get_logger()
     global PARSER
@@ -239,6 +239,7 @@ def cmd_edit():
 def cmd_complete():
     global COMPLETE
     last_arg = sys.argv[-1]
+    sys.argv = sys.argv[:-1]
     remove_first_argument()
     if COMPLETE: return main()
     COMPLETE = cmdcomplete.get_complete(last_arg)
@@ -315,7 +316,8 @@ class Argument:
 
 class CommandArgument(Argument):
     def __init__(self, command: Command):
-        super().__init__(lambda: (command.execute(PARSER.get_rest())), command.alias, None, command.description)
+        fun = lambda: (command.execute(PARSER.get_rest()))
+        super().__init__(fun, command.alias, None, command.description)
 
 def set_function(property_name, value):
     CONF[property_name] = value

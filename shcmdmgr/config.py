@@ -14,21 +14,27 @@ INFO_LEVEL = logging.INFO
 DEBUG_LEVEL = logging.DEBUG
 CONF = None
 VERSION = '0.0a1.dev1'
+LOGGER = None
 
 def setup_logging():
+    global LOGGER
     logging.addLevelName(VERBOSE_LEVEL, 'VERBOSE')
     def verbose(self, message, *args, **kws):
         if self.isEnabledFor(VERBOSE_LEVEL):
             self._log(VERBOSE_LEVEL, message, args, **kws)
     logging.Logger.verbose = verbose
-
-def get_logger():
-    logger = logging.getLogger()
+    LOGGER = logging.getLogger()
     handler = logging.StreamHandler()
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
     handler.setFormatter(formatter)
-    logger.addHandler(handler)
-    return logger
+    LOGGER.addHandler(handler)
+    return LOGGER
+
+def get_logger():
+    global LOGGER
+    if not LOGGER:
+        LOGGER = setup_logging()
+    return LOGGER
 
 def get_conf():
     global CONF
