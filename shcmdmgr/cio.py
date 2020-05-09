@@ -1,7 +1,7 @@
 
 import re, readline
 
-import config
+from shcmdmgr import config
 logger=config.get_logger()
 
 def uv(to_print):

@@ -1,12 +1,29 @@
-#!/usr/bin/env python3
+#
+#    shell-command-management
+#    Tool for managing custom commands from a central location
+#    Copyright (C) 2020  Václav Blažej
+#
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
 
 import os, sys, subprocess, enum
 from os.path import *
 
-import util, config, cio, filemanip, structure, cmdcomplete
-from cio import uv, print_str, input_str, input_with_prefill, search_and_format
-from structure import Command, Project
-from cmdcomplete import Complete
+from shcmdmgr import util, config, cio, filemanip, structure, cmdcomplete
+from shcmdmgr.cio import uv, print_str, input_str, input_with_prefill, search_and_format
+from shcmdmgr.structure import Command, Project
+from shcmdmgr.cmdcomplete import Complete
 
 SUCCESSFULL_EXECUTION = 0
 USER_ERROR = 1 # argument format is fine, but content is wrong
@@ -19,7 +36,7 @@ complete = None
 print_help = False
 project_root_var = 'project_root'
 default_command_load_deja_vu = False
-conf = config.get_conf()
+CONF = config.get_conf()
 
 # == Main Logic ==================================================================
 
@@ -31,21 +48,21 @@ def main():
     parser = Parser(sys.argv)
     parser.shift() # skip the program invocation
     while parser.may_have([FixedArgumentGroup.OUTPUT_ARGUMENTS]): pass
-    logger.setLevel(conf['logging_level'])
-    logger.debug('Configuration: ' + str(conf))
+    logger.setLevel(CONF['logging_level'])
+    logger.debug('Configuration: ' + str(CONF))
     logger.debug('Script folder: ' + uv(script_path))
     logger.debug('Working directory: ' + uv(working_directory))
     logger.debug('Arguments: ' + str(sys.argv))
     global project
     project = Project.retrieve_project_if_present(working_directory)
-    if project: os.environ[project_root_var] = project.directory
+    if project: os.environ[project_root_var] = project.directory # expose variable to subprocesses
 
     load_aliases()
     load_project_aliases()
     while parser.may_have([FixedArgumentGroup.OPTIONAL_ARGUMENTS]): pass
-    if conf['scope']=='auto':
-        if project: conf['scope']='project'
-        else: conf['scope']='global'
+    if CONF['scope']=='auto':
+        if project: CONF['scope']='project'
+        else: CONF['scope']='global'
     return main_command()
 
 def main_command():
@@ -54,8 +71,8 @@ def main_command():
     if not current_command:
         if complete: return complete_commands()
         if print_help: return print_general_help()
-        if conf['default_command']:
-            new_args = conf['default_command'].split(' ')
+        if CONF['default_command']:
+            new_args = CONF['default_command'].split(' ')
             global default_command_load_deja_vu
             if len(new_args) != 0: # prevent doing nothing due to empty default command
                 if default_command_load_deja_vu: # prevent adding default command multiple times
@@ -121,16 +138,16 @@ def cmd_save():
     show_edit = False
 
     if len(args) == 0: # supply the last command from history
-        history_file_location = join(os.environ['HOME'],conf['history_home'])
+        history_file_location = join(os.environ['HOME'],CONF['history_home'])
         history_command_in_binary = subprocess.check_output(['tail','-1',history_file_location])
         history_command = history_command_in_binary[:-1].decode("utf-8")
         args = history_command.split(' ')
         show_edit = True
 
     if len(args) > 0 and exists(args[0]): # substitute relative file path for absolute 
-        if conf['scope']=='project':
+        if CONF['scope']=='project':
             args[0] = '$' + project_root_var + '/' + os.path.relpath(join(working_directory, args[0]), project.directory)
-        if conf['scope']=='global':
+        if CONF['scope']=='global':
             args[0] = os.path.realpath(join(working_directory, args[0]))
         show_edit = True
 
@@ -141,8 +158,8 @@ def cmd_save():
     else:
         print_str('Saving command: ' + command_to_save)
 
-    if conf['scope']=='project': commands_file_location = project.commands_file
-    if conf['scope']=='global': commands_file_location = global_commands_file_location
+    if CONF['scope']=='project': commands_file_location = project.commands_file
+    if CONF['scope']=='global': commands_file_location = global_commands_file_location
 
     if not exists(commands_file_location):
         filemanip.save_json_file([], commands_file_location)
@@ -293,13 +310,13 @@ class CommandArgument(Argument):
         super().__init__(lambda : (command.execute(parser.get_rest())), command.alias, None, command.description)
 
 def set_function(property_name, value):
-    conf[property_name]=value
+    CONF[property_name]=value
 
 def create_set_function(property_name, value):
     return (lambda : (set_function(property_name, value)))
 
 def set_scope(scope):
-    conf['scope']=scope
+    CONF['scope']=scope
 
 class FixedArgument(Argument,enum.Enum):
     SAVE = ('--save', '-s', cmd_save, 'Saves command which is passed as further arguments')
@@ -416,7 +433,6 @@ def remove_first_argument():
 
 def run_script(command_with_arguments):
     try:
-        os.environ[project_root_var] = project.directory
         p = subprocess.Popen(command_with_arguments)
         try:
             p.wait()

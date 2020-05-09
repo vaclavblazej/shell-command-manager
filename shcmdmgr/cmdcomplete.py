@@ -1,10 +1,10 @@
 
 # == Completion ==================================================================
 
-complete = None
+COMPLETE = None
 
 class Complete:
-    def __init__(self, last_arg):
+    def __init__(self, last_arg:str):
         self.last_arg = last_arg
         self.words = []
 
@@ -20,9 +20,9 @@ class Complete:
     def words(self, words):
         self.__words = words
 
-def get_complete(last_arg):
-    global complete
-    if not complete:
-        complete = Complete(last_arg)
-    return complete
+def get_complete(last_arg : str) -> Complete:
+    global COMPLETE
+    if not COMPLETE:
+        COMPLETE = Complete(last_arg)
+    return COMPLETE
 

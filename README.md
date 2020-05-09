@@ -33,11 +33,11 @@ For stable release, run
 pip3 install shcmdmgr
 ```
 
-For latest and in-development version, you may sym-link code from the repository directly.
+
+For latest and in-development version, you may either sym-link code from the repository directly, or install the dev verasion using pip.
 
 ```bash
-git clone https://github.com/vaclavblazej/command.git
-ln -s ./command/shcmdmgr/__main__.py ~/bin/cmd
+pip3 install git+https://github.com/vaclavblazej/shell-command-management.git
 ```
 
 ## Basic usage

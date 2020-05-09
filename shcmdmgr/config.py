@@ -1,6 +1,6 @@
 
 import logging
-import filemanip
+from shcmdmgr import filemanip
 from os.path import join, dirname, realpath
 
 script_path = dirname(dirname(realpath(__file__))) #todo

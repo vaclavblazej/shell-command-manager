@@ -3,8 +3,7 @@ import os, datetime, shlex, subprocess
 from os.path import *
 from string import Template
 
-import config
-import filemanip
+from shcmdmgr import config, filemanip
 
 logger = config.get_logger()
 conf=config.get_conf()
