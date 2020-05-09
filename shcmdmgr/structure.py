@@ -5,8 +5,8 @@ import subprocess
 from os.path import join, exists, dirname, basename
 from string import Template
 
-from shcmdmgr import config, filemanip
-from shcmdmgr.cio import uv, print_str
+from shcmdmgr import config, filemanip, process
+from shcmdmgr.cio import quote, print_str, search_and_format
 
 PROJECT_SPECIFIC_SUBFOLDER = ".cmd"
 
@@ -70,7 +70,7 @@ class Command:
 class Project:
     def __init__(self, directory):
         if not directory:
-            raise Exception('The project directory %s is invalid', uv(directory))
+            raise Exception('The project directory %s is invalid'.format(quote(directory)))
         self.directory = directory
         self.conf = {
             'name': basename(self.directory),
@@ -78,7 +78,7 @@ class Project:
         }
         self.cmd_script_directory = join(self.directory, PROJECT_SPECIFIC_SUBFOLDER)
         self.config_file = join(self.cmd_script_directory, 'config.json')
-        # conf.update(filemanip.load_json_file(self.config_file)) # todo
+        # conf.update(filemanip.load_json_file(self.config_file))
         self.commands_file = join(self.cmd_script_directory, 'commands.json')
         self.completion_script = join(self.cmd_script_directory, 'completion.py')
         self.help_script = join(self.cmd_script_directory, 'help.py')
@@ -88,7 +88,7 @@ class Project:
 
     def print_help(self):
         if exists(self.help_script):
-            shcmdmgr.run_script([self.help_script])
+            process.run_script([self.help_script])
         else:
             print_str('You are in project: ' + self.directory)
             print_str('This project has no explicit help')

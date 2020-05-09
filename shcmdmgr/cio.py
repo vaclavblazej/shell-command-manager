@@ -1,22 +1,17 @@
-
-import re, readline
+import re
+import readline
 
 from shcmdmgr import config
-logger=config.get_logger()
+LOGGER = config.get_logger()
 
-def uv(to_print):
+def quote(to_print):
     return '"' + str(to_print) + '"'
 
 def print_str(text="", level=config.TEXT_LEVEL, end='\n'):
-    if level >= logger.level:
+    if level >= LOGGER.level:
         print(text, end=end)
 
-def input_str(text="", level=config.TEXT_LEVEL, end=''):
-    prompt = ''
-    if level >= logger.level: prompt = text
-    return input(prompt)
-
-def search_and_format(pattern:str, text:str) -> (int, str):
+def search_and_format(pattern: str, text: str) -> (int, str):
     if text is None:
         return (0, "")
     priority = 0
@@ -38,13 +33,12 @@ def search_and_format(pattern:str, text:str) -> (int, str):
     return (priority, formatted_text)
 
 # https://stackoverflow.com/questions/8505163/is-it-possible-to-prefill-a-input-in-python-3s-command-line-interface
-def input_with_prefill(prompt, text, level=config.TEXT_LEVEL):
-    if not level >= logger.level: prompt = ''
+def input_str(prompt, prefill='', level=config.TEXT_LEVEL):
+    if level < LOGGER.level: prompt = ''
     def hook():
-        readline.insert_text(text)
+        readline.insert_text(prefill)
         readline.redisplay()
     readline.set_pre_input_hook(hook)
     result = input(prompt)
     readline.set_pre_input_hook()
     return result
-

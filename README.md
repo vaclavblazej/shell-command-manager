@@ -29,22 +29,15 @@ It **IS NOT** designed to
 
 For stable release, run
 
-```bash
+```sh
 pip3 install shcmdmgr
-```
-
-
-For latest and in-development version, you may either sym-link code from the repository directly, or install the dev verasion using pip.
-
-```bash
-pip3 install git+https://github.com/vaclavblazej/shell-command-management.git
 ```
 
 ## Basic usage
 
 Use `cmd -s` (or `cmd --save`) to catalogue a command. For example `lsb_release -a`.
 
-```bash
+```sh
 $ lsb_release -a
 Distributor ID:	Ubuntu
 Description:	Ubuntu 20.04 LTS
@@ -59,7 +52,7 @@ Short description: Shows the system version
 
 Run the command either by invoking the alias
 
-```bash
+```sh
 $ cmd sysversion
 Distributor ID:	Ubuntu
 Description:	Ubuntu 20.04 LTS
@@ -69,7 +62,7 @@ Codename:	focal
 
 or use search `cmd -f` (or `cmd --find`) to find and run the command.
 
-```bash
+```sh
 $ cmd --find
 ========================================
 query $ system                            % items matching the regex are displayed
@@ -90,9 +83,9 @@ Codename:	focal
 
 To edit the command catalogue run `cmd --edit` which runs `$EDITOR ./<script_location>/commands.json` command or open and edit the catalogue file manually.
 
-```bash
+```sh
 $ cmd --edit
-% The editor opens the content similar to the following
+% The "$EDITOR" opens the content similar to the following
 [
     {
         "command": "lsb_release -a",
@@ -124,7 +117,23 @@ echo "source \"$PWD/command/completion/setup.zsh\"" >> ~/.zshrc
 
 ---
 
-## Advanced usage
+## Advanced
+
+### Installation
+
+For the latest development version run
+
+```sh
+pip3 install git+https://github.com/vaclavblazej/shell-command-management.git
+```
+
+For development setup you may fork the repository, clone it, and create symlink.
+```sh
+git clone git@github.com:vaclavblazej/shell-command-management.git
+ln -s "$PWD/shell-command-management/bin/cmd.sh" ~/bin/cmd
+```
+
+### Parts
 
 We manage custom scripts, their help, and completion.
 
