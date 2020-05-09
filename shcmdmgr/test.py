@@ -1,5 +1,15 @@
 import unittest
 
+from shcmdmgr import cmdcomplete
+
+class TestMainInvocation(unittest.TestCase):
+    def test_shell_invocation(self):
+        com = cmdcomplete.get_complete('last-arg')
+        self.assertTrue(com)
+
+if __name__ == '__main__':
+    unittest.main()
+
 # Example:
 # class TestStringMethods(unittest.TestCase):
     # # def setUp(self):
@@ -12,15 +22,3 @@ import unittest
     # # @unittest.skipUnless(sys.platform.startswith("win"), "requires Windows")
     # def test_upper(self):
         # self.assertEqual('foo'.upper(), 'FOO')
-
-import shcmdmgr
-from shcmdmgr import cmdcomplete
-import os
-
-class TestMainInvocation(unittest.TestCase):
-    def test_shell_invocation(self):
-        com = cmdcomplete.get_complete('last-arg')
-        self.assertTrue(com)
-
-if __name__ == '__main__':
-    unittest.main()

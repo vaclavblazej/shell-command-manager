@@ -18,7 +18,7 @@
 #
 
 import os, sys, subprocess, enum
-from os.path import *
+from os.path import join, realpath, dirname, basename, exists
 
 from shcmdmgr import util, config, cio, filemanip, structure, cmdcomplete
 from shcmdmgr.cio import uv, print_str, input_str, input_with_prefill, search_and_format
@@ -37,36 +37,38 @@ print_help = False
 project_root_var = 'project_root'
 default_command_load_deja_vu = False
 CONF = config.get_conf()
+LOGGER = None
+PARSER = None
 
 # == Main Logic ==================================================================
 
 def main():
     config.setup_logging()
-    global logger
-    logger = config.get_logger()
-    global parser
-    parser = Parser(sys.argv)
-    parser.shift() # skip the program invocation
-    while parser.may_have([FixedArgumentGroup.OUTPUT_ARGUMENTS]): pass
-    logger.setLevel(CONF['logging_level'])
-    logger.debug('Configuration: ' + str(CONF))
-    logger.debug('Script folder: ' + uv(script_path))
-    logger.debug('Working directory: ' + uv(working_directory))
-    logger.debug('Arguments: ' + str(sys.argv))
+    global LOGGER
+    LOGGER = config.get_logger()
+    global PARSER
+    PARSER = Parser(sys.argv)
+    PARSER.shift() # skip the program invocation
+    while PARSER.may_have([FixedArgumentGroup.OUTPUT_ARGUMENTS]): pass
+    LOGGER.setLevel(CONF['logging_level'])
+    LOGGER.debug('Configuration: ' + str(CONF))
+    LOGGER.debug('Script folder: ' + uv(script_path))
+    LOGGER.debug('Working directory: ' + uv(working_directory))
+    LOGGER.debug('Arguments: ' + str(sys.argv))
     global project
     project = Project.retrieve_project_if_present(working_directory)
     if project: os.environ[project_root_var] = project.directory # expose variable to subprocesses
 
     load_aliases()
     load_project_aliases()
-    while parser.may_have([FixedArgumentGroup.OPTIONAL_ARGUMENTS]): pass
-    if CONF['scope']=='auto':
-        if project: CONF['scope']='project'
-        else: CONF['scope']='global'
+    while PARSER.may_have([FixedArgumentGroup.OPTIONAL_ARGUMENTS]): pass
+    if CONF['scope'] == 'auto':
+        if project: CONF['scope'] = 'project'
+        else: CONF['scope'] = 'global'
     return main_command()
 
 def main_command():
-    current_command = parser.peek()
+    current_command = PARSER.peek()
 
     if not current_command:
         if complete: return complete_commands()
@@ -76,17 +78,17 @@ def main_command():
             global default_command_load_deja_vu
             if len(new_args) != 0: # prevent doing nothing due to empty default command
                 if default_command_load_deja_vu: # prevent adding default command multiple times
-                    logger.warning('The default command is invalid, it must include a command argument')
+                    LOGGER.warning('The default command is invalid, it must include a command argument')
                     return USER_ERROR
                 default_command_load_deja_vu = True
                 sys.argv += new_args
                 return main()
-        logger.warning('No command given')
+        LOGGER.warning('No command given')
         return USER_ERROR
 
-    if not parser.may_have([FixedArgumentGroup.PROJECT_COMMANDS, FixedArgumentGroup.CUSTOM_COMMANDS, FixedArgumentGroup.CMD_COMMANDS]):
-        logger.warning('The argument/command ' + uv(current_command) + ' was not found')
-        logger.info('run "cmd --help" if you are having trouble')
+    if not PARSER.may_have([FixedArgumentGroup.PROJECT_COMMANDS, FixedArgumentGroup.CUSTOM_COMMANDS, FixedArgumentGroup.CMD_COMMANDS]):
+        LOGGER.warning('The argument/command ' + uv(current_command) + ' was not found')
+        LOGGER.info('run "cmd --help" if you are having trouble')
         return USER_ERROR
 
     return SUCCESSFULL_EXECUTION
@@ -100,9 +102,10 @@ def print_general_help():
     help_str += 'Manage custom commands from a central location\n'
     print_str(help_str)
     main_groups = [FixedArgumentGroup.PROJECT_COMMANDS,
-                FixedArgumentGroup.CUSTOM_COMMANDS,
-                FixedArgumentGroup.CMD_SHOWN_COMMANDS,
-                FixedArgumentGroup.OPTIONAL_ARGUMENTS]
+        FixedArgumentGroup.CUSTOM_COMMANDS,
+        FixedArgumentGroup.CMD_SHOWN_COMMANDS,
+        FixedArgumentGroup.OPTIONAL_ARGUMENTS
+    ]
     print_str(ArgumentGroup.to_str(main_groups), end='')
     # additional_str = ''
     # print_str(additional_str) #todo print info including special options (such as --complete)
@@ -120,8 +123,8 @@ def cmd_help():
 
 def cmd_version():
     if complete: return complete_nothing()
-    print_str('cmd version ' + config.version)
-    parser.expect_nothing()
+    print_str('cmd version ' + config.VERSION)
+    PARSER.expect_nothing()
     return SUCCESSFULL_EXECUTION
 
 def cmd_save():
@@ -129,25 +132,25 @@ def cmd_save():
     alias = ''
     description = ''
     ar = [
-        Argument(lambda:print('TODO'), '--alias', '-a', 'one word shortcut used to invoke the command'),
-        Argument(lambda:print('TODO'), '--descr', '-d', 'few words about the command\'s functionality'),
-        Argument(lambda:print('TODO'), '--', None, 'command to be saved follows'),
+        Argument(lambda: print('TODO'), '--alias', '-a', 'one word shortcut used to invoke the command'),
+        Argument(lambda: print('TODO'), '--descr', '-d', 'few words about the command\'s functionality'),
+        Argument(lambda: print('TODO'), '--', None, 'command to be saved follows'),
     ]
-    while parser.may_have([ArgumentGroup('test', ar)]): pass
-    args = parser.get_rest()
+    while PARSER.may_have([ArgumentGroup('test', ar)]): pass
+    args = PARSER.get_rest()
     show_edit = False
 
     if len(args) == 0: # supply the last command from history
-        history_file_location = join(os.environ['HOME'],CONF['history_home'])
-        history_command_in_binary = subprocess.check_output(['tail','-1',history_file_location])
+        history_file_location = join(os.environ['HOME'], CONF['history_home'])
+        history_command_in_binary = subprocess.check_output(['tail', '-1', history_file_location])
         history_command = history_command_in_binary[:-1].decode("utf-8")
         args = history_command.split(' ')
         show_edit = True
 
     if len(args) > 0 and exists(args[0]): # substitute relative file path for absolute 
-        if CONF['scope']=='project':
+        if CONF['scope'] == 'project':
             args[0] = '$' + project_root_var + '/' + os.path.relpath(join(working_directory, args[0]), project.directory)
-        if CONF['scope']=='global':
+        if CONF['scope'] == 'global':
             args[0] = os.path.realpath(join(working_directory, args[0]))
         show_edit = True
 
@@ -158,13 +161,13 @@ def cmd_save():
     else:
         print_str('Saving command: ' + command_to_save)
 
-    if CONF['scope']=='project': commands_file_location = project.commands_file
-    if CONF['scope']=='global': commands_file_location = global_commands_file_location
+    if CONF['scope'] == 'project': commands_file_location = project.commands_file
+    if CONF['scope'] == 'global': commands_file_location = global_commands_file_location
 
     if not exists(commands_file_location):
         filemanip.save_json_file([], commands_file_location)
-    if alias=='': alias=input_str('Alias: ')
-    if description=='': description=input_str('Short description: ')
+    if alias == '': alias = input_str('Alias: ')
+    if description == '': description = input_str('Short description: ')
     commands_db = structure.load_commands(commands_file_location)
     commands_db.append(Command(command_to_save, description, alias))
     filemanip.save_json_file(commands_db, commands_file_location)
@@ -181,7 +184,7 @@ def cmd_find():
     try:
         while True:
             print_str(40 * '=')
-            arguments = parser.get_rest()
+            arguments = PARSER.get_rest()
             if len(arguments) != 0:
                 query = ' '.join(arguments)
                 arguments = []
@@ -189,10 +192,10 @@ def cmd_find():
                 query = input_str('query $ ')
             try:
                 idx = int(query)
-                if idx not in range(1,len(selected_commands)+1):
+                if idx not in range(1, len(selected_commands)+1):
                     print_str('invalid index')
                     continue
-                selected_commands[idx-1].execute(parser.get_rest())
+                selected_commands[idx-1].execute(PARSER.get_rest())
                 return
             except ValueError as e:
                 pass
@@ -201,10 +204,10 @@ def cmd_find():
             for command in commands_db:
                 result = command.find(query)
                 if result is not None:
-                    (priority,formatted_text) = result
-                    results.append((priority,formatted_text,command))
+                    (priority, formatted_text) = result
+                    results.append((priority, formatted_text, command))
             total_results_count = len(results)
-            if total_results_count==0:
+            if total_results_count == 0:
                 print_str('No results found')
             results = sorted(results, reverse=True) # by priority
             selected_commands = []
@@ -230,12 +233,12 @@ def cmd_edit():
 
 def cmd_complete():
     global complete
-    last_arg=sys.argv[-1]
+    last_arg = sys.argv[-1]
     remove_first_argument()
     if complete: return main()
     complete = cmdcomplete.get_complete(last_arg)
-    logger.setLevel(config.QUIET_LEVEL) # fix when set after main() call
-    main_res=main()
+    LOGGER.setLevel(config.QUIET_LEVEL) # fix when set after main() call
+    main_res = main()
     for word in complete.words:
         print(word, end=' ')
     print()
@@ -245,20 +248,20 @@ def load_aliases(): # todo simplify
     commands_db = structure.load_commands(global_commands_file_location)
     global aliases
     aliases = {}
-    call_fun = lambda cmd : (lambda args : cmd.execute(args))
+    call_fun = lambda cmd: (lambda args: cmd.execute(args))
     for command in commands_db:
         if command.alias:
-            aliases[command.alias]=Command(call_fun(command), command.description)
+            aliases[command.alias] = Command(call_fun(command), command.description)
     return [CommandArgument(cmd) for cmd in commands_db if cmd.alias]
 
 def load_project_aliases(): # todo push into the parser
     global project_aliases
     project_aliases = {}
     if project:
-        call_fun = lambda cmd : (lambda args : cmd.execute(args))
+        call_fun = lambda cmd: (lambda args: cmd.execute(args))
         for command in project.commands:
             if command.alias:
-                project_aliases[command.alias]=Command(call_fun(command), command.description)
+                project_aliases[command.alias] = Command(call_fun(command), command.description)
         return [CommandArgument(cmd) for cmd in project.commands if cmd.alias]
     return None
 
@@ -268,8 +271,8 @@ def complete_nothing():
     return SUCCESSFULL_EXECUTION
 
 def complete_commands():
-    cmd_commands = ['--save','--find','--version','--help','-s','-f','-h']
-    flags = ['-q','-v','-d']
+    cmd_commands = ['--save', '--find', '--version', '--help', '-s', '-f', '-h']
+    flags = ['-q', '-v', '-d']
     complete.words += aliases
     complete.words += project_aliases
     complete.words += cmd_commands
@@ -306,8 +309,8 @@ class Argument:
         return total
 
 class CommandArgument(Argument):
-    def __init__(self, command:Command):
-        super().__init__(lambda : (command.execute(parser.get_rest())), command.alias, None, command.description)
+    def __init__(self, command: Command):
+        super().__init__(lambda : (command.execute(PARSER.get_rest())), command.alias, None, command.description)
 
 def set_function(property_name, value):
     CONF[property_name]=value
@@ -331,12 +334,12 @@ class FixedArgument(Argument,enum.Enum):
     PROJECT_SCOPE = ('--project', '-p', lambda : set_scope('project'), 'Applies the command in the project command collection')
     GLOBAL_SCOPE = ('--global', '-g', lambda : set_scope('global'), 'Applies the command in the global command collection')
 
-    def __init__(self, arg_name:str, short_arg_name:str, function, help_str:str):
+    def __init__(self, arg_name: str, short_arg_name: str, function, help_str: str):
         super().__init__(function, arg_name, short_arg_name, help_str)
 
     
 class ArgumentGroup:
-    def __init__(self, group_name:str, arguments:[Argument]=None, arg_fun=None, if_empty:str=None):
+    def __init__(self, group_name: str, arguments:[Argument]=None, arg_fun=None, if_empty: str=None):
         self.group_name = group_name
         self._arguments = arguments
         self.arg_fun = arg_fun
@@ -376,7 +379,7 @@ class FixedArgumentGroup(ArgumentGroup,enum.Enum):
     OUTPUT_ARGUMENTS = ('', [FixedArgument.QUIET, FixedArgument.VERBOSE, FixedArgument.DEBUG])
     OPTIONAL_ARGUMENTS = ('optional argument', [FixedArgument.QUIET, FixedArgument.VERBOSE, FixedArgument.DEBUG, FixedArgument.PROJECT_SCOPE, FixedArgument.GLOBAL_SCOPE])
 
-    def __init__(self, group_name:str, arguments:[Argument]=None, arg_fun=None, if_empty:str=None):
+    def __init__(self, group_name: str, arguments:[Argument]=None, arg_fun=None, if_empty: str=None):
         super().__init__(group_name, arguments, arg_fun, if_empty)
 
 class Parser:
@@ -384,7 +387,7 @@ class Parser:
         self.arguments = []
         for arg in arguments:
             add_args = [arg]
-            if len(arg) >= 3 and arg[0]=='-' and arg[1]!='-':
+            if len(arg) >= 3 and arg[0] == '-' and arg[1]!='-':
                 add_args = []
                 for a in arg[1:]:
                     add_args.append('-'+a)
@@ -452,5 +455,4 @@ if __name__ == '__main__':
         sys.exit(main())
     except KeyboardInterrupt:
         print_str()
-        logger.critical('Manually interrupted!')
-
+        LOGGER.critical('Manually interrupted!')

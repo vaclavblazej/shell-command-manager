@@ -1,3 +1,5 @@
 #!/usr/bin/env bash
 
-pylint
+cd $project_root
+
+pylint --rcfile="$PWD/.cmd/lint.rc" shcmdmgr
