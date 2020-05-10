@@ -9,7 +9,12 @@ config_local.json
 
 # vim temporary edit files
 *.swp
+
+# python's bytecode and temporary files
+*.pyc
 __pycache__
+
+# package distribution
 dist/
 shell_command_management.egg-info/
 
