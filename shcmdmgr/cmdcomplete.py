@@ -1,5 +1,6 @@
-
-# == Completion ==================================================================
+'''
+Completion utility class 
+'''
 
 COMPLETE = None
 

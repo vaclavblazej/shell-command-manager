@@ -7,6 +7,11 @@ class TestMainInvocation(unittest.TestCase):
         com = cmdcomplete.get_complete('last-arg')
         self.assertTrue(com)
 
+class TestMainInvocation(unittest.TestCase):
+    def test_shell_invocation(self):
+        com = cmdcomplete.get_complete('last-arg')
+        self.assertTrue(com)
+
 if __name__ == '__main__':
     unittest.main()
 

@@ -16,5 +16,6 @@ __pycache__
 
 # package distribution
 dist/
-shell_command_management.egg-info/
+shcmdmgr.egg-info/
+build/
 
