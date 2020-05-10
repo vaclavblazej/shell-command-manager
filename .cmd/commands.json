@@ -18,15 +18,21 @@
         "creation_time": "2020-05-05 18:54:24"
     },
     {
-        "command": "ls .cmd",
+        "command": "$project_root/.cmd/deploy.sh",
         "description": "Uploads the contents of /build folder to the pypi.org server",
         "alias": "deploy",
         "creation_time": "2020-05-05 18:55:17"
     },
     {
-        "command": "$project_root/.cmd/lint.sh ",
+        "command": "$project_root/.cmd/lint.sh",
         "description": "check python syntax",
         "alias": "lint",
         "creation_time": "2020-05-09 19:00:01"
+    },
+    {
+        "command": "$project_root/.cmd/deploy-real.sh ",
+        "description": "Upload the build to the pypi.org server so it's installable via pip",
+        "alias": "deploy-production",
+        "creation_time": "2020-05-11 00:52:06"
     }
 ]
