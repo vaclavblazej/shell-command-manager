@@ -70,7 +70,7 @@ class Command:
 class Project:
     def __init__(self, directory):
         if not directory:
-            raise Exception('The project directory %s is invalid'.format(quote(directory)))
+            raise Exception('The project directory {} is invalid'.format(quote(directory)))
         self.directory = directory
         self.conf = {
             'name': basename(self.directory),

@@ -201,7 +201,7 @@ def cmd_find():
                     print_str('invalid index')
                     continue
                 selected_commands[idx-1].execute(PARSER.get_rest())
-                return
+                break
             except ValueError as _:
                 pass
             index = 1
@@ -254,20 +254,18 @@ def load_aliases(): # todo simplify
     commands_db = structure.load_commands(GLOBAL_COMMANDS_FILE_LOCATION)
     global ALIASES
     ALIASES = {}
-    call_fun = lambda cmd: (lambda args: cmd.execute(args))
     for command in commands_db:
         if command.alias:
-            ALIASES[command.alias] = Command(call_fun(command), command.description)
+            ALIASES[command.alias] = Command(command.execute, command.description)
     return [CommandArgument(cmd) for cmd in commands_db if cmd.alias]
 
 def load_project_aliases(): # todo push into the parser
     global PROJECT_ALIASES
     PROJECT_ALIASES = {}
     if PROJECT:
-        call_fun = lambda cmd: (lambda args: cmd.execute(args))
         for command in PROJECT.commands:
             if command.alias:
-                PROJECT_ALIASES[command.alias] = Command(call_fun(command), command.description)
+                PROJECT_ALIASES[command.alias] = Command(command.execute, command.description)
         return [CommandArgument(cmd) for cmd in PROJECT.commands if cmd.alias]
     return None
 
