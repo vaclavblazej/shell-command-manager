@@ -1,11 +1,12 @@
 from setuptools import setup, find_packages
+from shcmdmgr.config import VERSION
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup(
     name="shcmdmgr",
-    version="0.0a1.dev1",
+    version=VERSION,
     author="Václav Blažej",
     author_email="vaclavblazej@seznam.cz",
     description="Tool for managing custom commands from a central location",
