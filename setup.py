@@ -14,6 +14,9 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/vaclavblazej/shell-command-management",
     packages=find_packages(include=['shcmdmgr']),
+    package_dir={'shcmdmgr': 'shcmdmgr'},
+    package_data={'shcmdmgr': ['completion/*', '_config.json']},
+    data_files=[('completions', ['completion/setup.bash', 'completion/setup.zsh'])],
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
         "Intended Audience :: Developers",
@@ -23,6 +26,7 @@ setup(
         "Operating System :: POSIX :: Linux",
         "Topic :: Utilities",
     ],
+    include_package_data=True,
     python_requires=">=3.8",
     entry_points={
         "console_scripts": [
