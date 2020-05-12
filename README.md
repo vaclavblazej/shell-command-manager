@@ -104,15 +104,15 @@ $ cmd --edit
 
 ### Completion
 
-You can setup completion by adding `source ./<script_location>/completion/setup.<your shell>` into your `rc` script.
-Supported shells are `bash` and `zsh`.
+Completion is supported in `bash` and `zsh` shells, and must be enabled explicitly.
+Installing the completion is the matter of adding file-source to the RC file.
 
-```bash
-echo "source \"$PWD/command/completion/setup.bash\"" >> ~/.bashrc
-```
+The correct command can be emited by invoking `--completion <shell>` command.
+So you can use the following for bash or zsh respectively.
 
-```zsh
-echo "source \"$PWD/command/completion/setup.zsh\"" >> ~/.zshrc
+```sh
+cmd --completion bash >> ~/.bashrc
+cmd --completion zsh >> ~/.zshrc
 ```
 
 ---
@@ -124,13 +124,13 @@ echo "source \"$PWD/command/completion/setup.zsh\"" >> ~/.zshrc
 For the latest development version run
 
 ```sh
-pip3 install git+https://github.com/vaclavblazej/shell-command-management.git
+pip3 install git+https://github.com/vaclavblazej/shell-command-manager.git
 ```
 
 For development setup you may fork the repository, clone it, and create symlink.
 ```sh
-git clone git@github.com:vaclavblazej/shell-command-management.git
-ln -s "$PWD/shell-command-management/bin/cmd.sh" ~/bin/cmd
+git clone git@github.com:vaclavblazej/shell-command-manager.git
+ln -s "$PWD/shell-command-manager/bin/cmd.sh" ~/bin/cmd
 ```
 
 ### Parts

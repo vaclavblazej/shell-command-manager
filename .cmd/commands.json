@@ -34,5 +34,11 @@
         "description": "Upload the build to the pypi.org server so it's installable via pip",
         "alias": "deploy-production",
         "creation_time": "2020-05-11 00:52:06"
+    },
+    {
+        "command": "$project_root/.cmd/upgrade.sh ",
+        "description": "install or upgrade the package from the test server",
+        "alias": "upgrade",
+        "creation_time": "2020-05-12 11:05:18"
     }
 ]

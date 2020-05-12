@@ -1,7 +1,9 @@
 #!/usr/bin/env zsh
 
 DIR=$(dirname $0:A)
-SCRIPT="$DIR/../bin/cmd.sh" # relative to the script location
+export PYTHONPATH
+PACKAGE="$(dirname "$(dirname "$(dirname "$(readlink -f "$DIR")")")")"
+PYTHONPATH="$PACKAGE:$PYTHONPATH"
 
 function _my_custom_completion_func {
     local cmd_string
@@ -10,11 +12,10 @@ function _my_custom_completion_func {
     IFS=$' ' comp=($(echo $cmd_string))
     comp=('--complete' ${comp[@]:1})
     if [[ "${cmd_string: -1}" == ' ' ]]; then comp+=(''); fi
-    ans_str=($($SCRIPT "${comp[@]}"))
+    ans_str=($(python3 "$DIR/run.py" "${comp[@]}"))
     local ans
     IFS=$' ' ans=($(echo $ans_str))
     _describe 'cmd' ans
 }
 
-compdef _my_custom_completion_func cmd
-
+compdef _my_custom_completion_func $1

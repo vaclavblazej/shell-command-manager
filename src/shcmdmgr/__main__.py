@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-#    shell-command-management
+#    shell-command-manager
 #    Tool for managing custom commands from a central location
 #    Copyright (C) 2020  Václav Blažej
 #
@@ -24,7 +24,7 @@ import subprocess
 import enum
 from os.path import join, exists
 
-from shcmdmgr import util, config, filemanip, structure, cmdcomplete
+from shcmdmgr import util, config, filemanip, structure, complete
 from shcmdmgr.cio import quote, print_str, input_str
 from shcmdmgr.structure import Command, Project
 from shcmdmgr.config import SCRIPT_PATH
@@ -74,7 +74,6 @@ def main():
 
 def main_command():
     current_command = PARSER.peek()
-
     if not current_command:
         if COMPLETE: return complete_commands()
         if PRINT_HELP: return print_general_help()
@@ -242,13 +241,23 @@ def cmd_complete():
     sys.argv = sys.argv[:-1]
     remove_first_argument()
     if COMPLETE: return main()
-    COMPLETE = cmdcomplete.get_complete(last_arg)
+    COMPLETE = complete.get_complete(last_arg)
     LOGGER.setLevel(config.QUIET_LEVEL) # fix when set after main() call
     main_res = main()
     for word in COMPLETE.words:
         print(word, end=' ')
     print()
     return main_res
+
+def cmd_completion():
+    shell = PARSER.shift()
+    PARSER.expect_nothing()
+    completion_init_script_path = complete.setup_script_path(shell)
+    if exists(completion_init_script_path):
+        print_str('source {} cmd'.format(completion_init_script_path))
+    else:
+        raise Exception('unsuported shell {}, choose bash or zsh'.format(quote(shell)))
+    return SUCCESSFULL_EXECUTION
 
 def load_aliases(): # todo simplify
     commands_db = structure.load_commands(GLOBAL_COMMANDS_FILE_LOCATION)
@@ -332,7 +341,8 @@ class FixedArgument(Argument, enum.Enum):
     EDIT = ('--edit', '-e', cmd_edit, 'Edit the command databse in text editor')
     VERSION = ('--version', '-V', cmd_version, 'Prints out version information')
     HELP = ('--help', '-h', cmd_help, 'Request detailed information about flags or commands')
-    COMPLETION = ('--complete', None, cmd_complete, 'Returns list of words which are supplied to the completion shell command')
+    COMPLETE = ('--complete', None, cmd_complete, 'Returns list of words which are supplied to the completion shell command')
+    COMPLETION = ('--completion', None, cmd_completion, 'Return shell command to be added to the .rc file to allow completion')
     QUIET = ('--quiet', '-q', create_set_function('logging_level', config.QUIET_LEVEL), 'No output will be shown')
     VERBOSE = ('--verbose', '-v', create_set_function('logging_level', config.VERBOSE_LEVEL), 'More detailed output information')
     DEBUG = ('--debug', '-d', create_set_function('logging_level', config.DEBUG_LEVEL), 'Very detailed messages of script\'s inner workings')
@@ -379,7 +389,7 @@ class ArgumentGroup:
 class FixedArgumentGroup(ArgumentGroup, enum.Enum):
     PROJECT_COMMANDS = ('project commands', None, load_project_aliases)
     CUSTOM_COMMANDS = ('custom commands', None, load_aliases, 'You may add new custom commands via "cmd --save if the command is given alias, it will show up here')
-    CMD_COMMANDS = ('management commands', [FixedArgument.SAVE, FixedArgument.FIND, FixedArgument.EDIT, FixedArgument.VERSION, FixedArgument.HELP, FixedArgument.COMPLETION])
+    CMD_COMMANDS = ('management commands', [FixedArgument.SAVE, FixedArgument.FIND, FixedArgument.EDIT, FixedArgument.VERSION, FixedArgument.HELP, FixedArgument.COMPLETE, FixedArgument.COMPLETION])
     CMD_SHOWN_COMMANDS = ('management commands', [FixedArgument.SAVE, FixedArgument.FIND, FixedArgument.EDIT, FixedArgument.VERSION, FixedArgument.HELP])
     OUTPUT_ARGUMENTS = ('', [FixedArgument.QUIET, FixedArgument.VERBOSE, FixedArgument.DEBUG])
     OPTIONAL_ARGUMENTS = ('optional argument', [FixedArgument.QUIET, FixedArgument.VERBOSE, FixedArgument.DEBUG, FixedArgument.PROJECT_SCOPE, FixedArgument.GLOBAL_SCOPE])
@@ -415,7 +425,7 @@ class Parser:
     def expect_nothing(self):
         cur = self.peek()
         if cur:
-            raise Exception('unexpected parameter ' + cur)
+            raise Exception('unexpected parameter ' + quote(cur))
 
     def may_have(self, groups: [ArgumentGroup]):
         current = self.peek()

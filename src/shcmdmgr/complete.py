@@ -2,6 +2,10 @@
 Completion utility class 
 '''
 
+from os.path import join
+
+from shcmdmgr import config
+
 COMPLETE = None
 
 class Complete:
@@ -20,6 +24,9 @@ class Complete:
     @words.setter
     def words(self, words):
         self.__words = words
+
+def setup_script_path(shell: str) -> str:
+    return join(config.DATA_PATH, 'completion/setup.{}'.format(shell))
 
 def get_complete(last_arg: str) -> Complete:
     global COMPLETE

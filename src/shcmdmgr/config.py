@@ -1,11 +1,13 @@
 import logging
-from os.path import join, dirname, realpath
+from os.path import join, dirname, realpath, exists
 
 from shcmdmgr import filemanip
 
-SCRIPT_PATH = dirname(dirname(realpath(__file__)))
-GLOBAL_CONFIG_FOLDER = join(SCRIPT_PATH, '_config.json')
-LOCAL_CONFIG_FOLDER = join(SCRIPT_PATH, 'config_local.json')
+SCRIPT_PATH = dirname(realpath(__file__))
+# SCRIPT_PATH = dirname(dirname(realpath(__file__)))
+DATA_PATH = join(SCRIPT_PATH, 'data')
+GLOBAL_CONFIG_FILE = join(DATA_PATH, '_config.json')
+LOCAL_CONFIG_FILE = join(DATA_PATH, 'config_local.json')
 
 VERBOSE_LEVEL = 15
 TEXT_LEVEL = 30
@@ -13,7 +15,7 @@ QUIET_LEVEL = 60
 INFO_LEVEL = logging.INFO
 DEBUG_LEVEL = logging.DEBUG
 CONF = None
-VERSION = '0.1.1-dev'
+VERSION = '0.1.1-dev7'
 LOGGER = None
 
 def setup_logging():
@@ -40,6 +42,6 @@ def get_conf():
     global CONF
     if CONF: return CONF
     CONF = {'logging_level': INFO_LEVEL,}  # logging basic set up before config loads
-    CONF.update(filemanip.load_json_file(GLOBAL_CONFIG_FOLDER))
-    CONF.update(filemanip.load_json_file(LOCAL_CONFIG_FOLDER))
+    CONF.update(filemanip.load_json_file(GLOBAL_CONFIG_FILE))
+    CONF.update(filemanip.load_json_file(LOCAL_CONFIG_FILE))
     return CONF

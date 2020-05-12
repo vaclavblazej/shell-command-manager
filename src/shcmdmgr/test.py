@@ -1,15 +1,15 @@
 import unittest
 
-from shcmdmgr import cmdcomplete
+from shcmdmgr import complete
 
 class TestMainInvocation(unittest.TestCase):
     def test_shell_invocation(self):
-        com = cmdcomplete.get_complete('last-arg')
+        com = complete.get_complete('last-arg')
         self.assertTrue(com)
 
 class TestMainInvocation(unittest.TestCase):
     def test_shell_invocation(self):
-        com = cmdcomplete.get_complete('last-arg')
+        com = complete.get_complete('last-arg')
         self.assertTrue(com)
 
 if __name__ == '__main__':
