@@ -27,7 +27,7 @@ It **IS NOT** designed to
 
 ## Installation
 
-For stable release, run
+To install Shell command manager run
 
 ```sh
 pip3 install shcmdmgr
