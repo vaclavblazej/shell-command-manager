@@ -1,4 +1,4 @@
-DISCLAIMER (WORK IN PROGRESS):
+**DISCLAIMER (WORK IN PROGRESS):**
 As of May 2020 this project is work in progress.
 The alpha release is planned for June.
 
@@ -6,7 +6,7 @@ It **IS** designed to
 
 * make a clear overview of custom-made commands
 * provide a common user interface for the commands
-* provide a clear way to create scripts which work well with this tool
+* provide a clear way to setup commands which work well with this tool
 
 It **IS NOT** designed to
 
@@ -15,15 +15,15 @@ It **IS NOT** designed to
 
 ## TODOs
 
-* split the structure into modules, make them bite-sized and logical
+* refine the structure of modules
 * fix over-escaping, e.g. in 'proot' test command
 * improve search (not only one whole regex)
 * help for arguments
 * completion for arguments
 * think of possible project configuration variables
 * fix optional parameter load order
+* release to pypi and get it tested by somebody else
 * (seems hard) copy the command into command line instead of executing it
-* release 0.1a1-dev1 to pypi and get it tested by somebody else
 
 ## Installation
 
@@ -81,7 +81,7 @@ Release:	20.04
 Codename:	focal
 ```
 
-To edit the command catalogue run `cmd --edit` which runs `$EDITOR ./<script_location>/commands.json` command or open and edit the catalogue file manually.
+To edit the command catalogue run `cmd --edit` (or `cmd -e`) which runs `$EDITOR ./<script_location>/commands.json` command or open and edit the catalogue file manually.
 
 ```sh
 $ cmd --edit
@@ -117,17 +117,18 @@ cmd --completion zsh >> ~/.zshrc
 
 ---
 
-## Advanced
+## Advanced (work in progress)
 
 ### Installation
 
-For the latest development version run
+To get the latest (non-stable) development version run the following.
 
 ```sh
 pip3 install git+https://github.com/vaclavblazej/shell-command-manager.git
 ```
 
-For development setup you may fork the repository, clone it, and create symlink.
+For development setup you may fork the repository, clone it, and create a symlink.
+
 ```sh
 git clone git@github.com:vaclavblazej/shell-command-manager.git
 ln -s "$PWD/shell-command-manager/bin/cmd.sh" ~/bin/cmd
@@ -162,5 +163,4 @@ It prints a string to standard output which describes what our current command d
 Completion is invoked by calling `script --complete <arguments>` and prints out the list of words which are sensible arguments in the next places.
 The last argument is considered as *argument prefix* and is used to filter out possible words.
 If no filtering is wanted, the last argument should be empty-string.
-
 

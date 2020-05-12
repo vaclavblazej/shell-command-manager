@@ -15,7 +15,7 @@ QUIET_LEVEL = 60
 INFO_LEVEL = logging.INFO
 DEBUG_LEVEL = logging.DEBUG
 CONF = None
-VERSION = '0.1.1-dev7'
+VERSION = '0.1.1'
 LOGGER = None
 
 def setup_logging():
