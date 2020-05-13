@@ -1,4 +1,3 @@
-
 ## TODOs
 
 * fix over-escaping, e.g. in 'proot' test command
@@ -13,5 +12,8 @@
 
 ## Bugs from testing 
 
-* default editor or error message when $EDITOR is not set
+* --
 
+## Done since the last release (to be moved to the CHANGELOG)
+
+* use default editor when EDITOR variable is not set

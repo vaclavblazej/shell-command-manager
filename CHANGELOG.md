@@ -1,6 +1,8 @@
+## 0.1.1
 
+* fixed many features to work with pypi packaging
 
-## 0.1.2
+## 0.1.0
 
-* use default editor when EDITOR variable is not set
-
+* global commands saved in one fixed file
+* main commands (save, find, edit, etc.)
