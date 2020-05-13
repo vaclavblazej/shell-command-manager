@@ -13,18 +13,6 @@ It **IS NOT** designed to
 * provide standard functions or libraries to be used in the custom-made commands
 * check correctness or analyse the commands
 
-## TODOs
-
-* refine the structure of modules
-* fix over-escaping, e.g. in 'proot' test command
-* improve search (not only one whole regex)
-* help for arguments
-* completion for arguments
-* think of possible project configuration variables
-* fix optional parameter load order
-* release to pypi and get it tested by somebody else
-* (seems hard) copy the command into command line instead of executing it
-
 ## Installation
 
 To install Shell command manager run

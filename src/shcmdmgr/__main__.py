@@ -23,18 +23,18 @@ import sys
 import subprocess
 import enum
 from os.path import join, exists
+from string import Template
 
 from shcmdmgr import util, config, filemanip, structure, complete
 from shcmdmgr.cio import quote, print_str, input_str
 from shcmdmgr.structure import Command, Project
-from shcmdmgr.config import SCRIPT_PATH
+from shcmdmgr.config import SCRIPT_PATH, GLOBAL_COMMANDS_FILE_LOCATION
 
 SUCCESSFULL_EXECUTION = 0
 USER_ERROR = 1 # argument format is fine, but content is wrong
 INVALID_ARGUMENT = 129 # argument format is wrong
 
 WORKING_DIRECTORY = os.getcwd()
-GLOBAL_COMMANDS_FILE_LOCATION = join(SCRIPT_PATH, 'commands.json')
 COMPLETE = None
 PRINT_HELP = False
 PROJECT_ROOT_VAR = 'project_root'
@@ -232,7 +232,12 @@ def cmd_find():
 
 def cmd_edit():
     if COMPLETE: return complete_nothing()
-    subprocess.run([os.path.expandvars('$EDITOR'), GLOBAL_COMMANDS_FILE_LOCATION], check=True)
+    editor = 'vim'
+    try:
+        editor = Template('$EDITOR').substitute(os.environ)
+    except KeyError:
+        pass
+    subprocess.run([editor, GLOBAL_COMMANDS_FILE_LOCATION], check=True)
     return SUCCESSFULL_EXECUTION
 
 def cmd_complete():

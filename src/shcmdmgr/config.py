@@ -8,6 +8,7 @@ SCRIPT_PATH = dirname(realpath(__file__))
 DATA_PATH = join(SCRIPT_PATH, 'data')
 GLOBAL_CONFIG_FILE = join(DATA_PATH, '_config.json')
 LOCAL_CONFIG_FILE = join(DATA_PATH, 'config_local.json')
+GLOBAL_COMMANDS_FILE_LOCATION = join(DATA_PATH, 'commands.json')
 
 VERBOSE_LEVEL = 15
 TEXT_LEVEL = 30
