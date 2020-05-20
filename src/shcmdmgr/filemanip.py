@@ -1,7 +1,4 @@
-
 import json
-
-# == File Manipulation ===========================================================
 
 def save_json_file(json_content_object, file_location):
     # fail-safe when JSON-serialization fails

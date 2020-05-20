@@ -13,11 +13,6 @@ PROJECT_SPECIFIC_SUBFOLDER = ".cmd"
 LOGGER = config.get_logger()
 CONF = config.get_conf()
 
-def load_commands(commands_file_location):
-    commands_db = filemanip.load_json_file(commands_file_location)
-    return list(map(Command.from_json, commands_db))
-
-# == Structure ===================================================================
 
 class Command:
     # command can be either str, or a function (str[]) -> None
@@ -66,6 +61,11 @@ class Command:
             subprocess.run(cmd_split + args, check=False)
         else:
             self.command(args)
+
+def load_commands(commands_file_location) -> [Command]:
+    commands_db = filemanip.load_json_file(commands_file_location)
+    return [Command.from_json(j) for j in commands_db]
+
 
 class Project:
     def __init__(self, directory):
