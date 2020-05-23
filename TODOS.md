@@ -5,9 +5,7 @@
 * help for arguments
 * completion for arguments
 * think of possible project configuration variables
-* fix optional parameter load order
 * refine the structure of modules
-* release to pypi and get it tested by somebody else
 * (seems hard) copy the command into command line instead of executing it
 
 ## Bugs from testing 

@@ -401,14 +401,7 @@ class FixedArgumentGroup(ArgumentGroup, enum.Enum):
 
 class Parser:
     def __init__(self, arguments):
-        self.arguments = []
-        for arg in arguments:
-            add_args = [arg]
-            if len(arg) >= 3 and arg[0] == '-' and arg[1] != '-':
-                add_args = []
-                for one_letter_arg in arg[1:]:
-                    add_args.append('-' + one_letter_arg)
-            self.arguments += add_args
+        self.arguments = arguments
 
     def peek(self):
         if len(self.arguments) != 0:
