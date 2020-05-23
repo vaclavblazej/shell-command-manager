@@ -153,7 +153,8 @@ def cmd_save():
 
     if len(args) > 0 and exists(args[0]): # substitute relative file path for absolute
         if CONF['scope'] == 'project':
-            args[0] = '$' + PROJECT_ROOT_VAR + '/' + os.path.relpath(join(WORKING_DIRECTORY, args[0]), PROJECT.directory)
+            path_from_project_root = os.path.relpath(join(WORKING_DIRECTORY, args[0]), PROJECT.directory)
+            args[0] = '${root_var}/{path}'.format(PROJECT_ROOT_VAR, path_from_project_root)
         if CONF['scope'] == 'global':
             args[0] = os.path.realpath(join(WORKING_DIRECTORY, args[0]))
         show_edit = True
@@ -165,8 +166,7 @@ def cmd_save():
     else:
         print_str('Saving command: ' + command_to_save)
 
-    if CONF['scope'] == 'project': commands_file_location = PROJECT.commands_file
-    if CONF['scope'] == 'global': commands_file_location = GLOBAL_COMMANDS_FILE_LOCATION
+    commands_file_location = get_context_command_file_location()
 
     if not exists(commands_file_location):
         filemanip.save_json_file([], commands_file_location)
@@ -176,6 +176,11 @@ def cmd_save():
     commands_db.append(Command(command_to_save, description, alias))
     filemanip.save_json_file(commands_db, commands_file_location)
     return SUCCESSFULL_EXECUTION
+
+def get_context_command_file_location() -> str:
+    if CONF['scope'] == 'project' and PROJECT: return PROJECT.commands_file
+    if CONF['scope'] == 'global': return GLOBAL_COMMANDS_FILE_LOCATION
+    return None
 
 def cmd_find():
     if COMPLETE: return complete_nothing()
@@ -237,7 +242,7 @@ def cmd_edit():
         editor = Template('$EDITOR').substitute(os.environ)
     except KeyError:
         pass
-    subprocess.run([editor, GLOBAL_COMMANDS_FILE_LOCATION], check=True)
+    subprocess.run([editor, get_context_command_file_location()], check=True)
     return SUCCESSFULL_EXECUTION
 
 def cmd_complete():

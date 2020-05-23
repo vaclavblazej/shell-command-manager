@@ -1,6 +1,6 @@
 ## TODOs
 
-* fix over-escaping, e.g. in 'proot' test command
+* investigate over-escaping, e.g. in 'proot' test command
 * improve search (not only one whole regex)
 * help for arguments
 * completion for arguments
@@ -15,3 +15,4 @@
 ## Done since the last release (to be moved to the CHANGELOG)
 
 * use default editor when EDITOR variable is not set
+* --edit opens project or global command file in accordance to context and flags
