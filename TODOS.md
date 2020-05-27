@@ -1,5 +1,6 @@
 ## TODOs
 
+* arguments for --save command
 * investigate over-escaping, e.g. in 'proot' test command
 * improve search (not only one whole regex)
 * help for arguments

@@ -54,7 +54,7 @@ def main():
     global PARSER
     PARSER = Parser(sys.argv)
     PARSER.shift() # skip the program invocation
-    while PARSER.may_have([FixedArgumentGroup.OUTPUT_ARGUMENTS]): pass
+    PARSER.load_all([FixedArgumentGroup.OUTPUT_ARGUMENTS])
     LOGGER.setLevel(CONF['logging_level'])
     LOGGER.debug('Configuration: %s', str(CONF))
     LOGGER.debug('Script folder: %s', quote(SCRIPT_PATH))
@@ -66,7 +66,7 @@ def main():
 
     load_aliases()
     load_project_aliases()
-    while PARSER.may_have([FixedArgumentGroup.OPTIONAL_ARGUMENTS]): pass
+    PARSER.load_all([FixedArgumentGroup.OPTIONAL_ARGUMENTS])
     if CONF['scope'] == 'auto':
         if PROJECT: CONF['scope'] = 'project'
         else: CONF['scope'] = 'global'
@@ -132,7 +132,6 @@ def cmd_version():
     return SUCCESSFULL_EXECUTION
 
 def cmd_save():
-    if COMPLETE: return complete_nothing()
     alias = ''
     description = ''
     other_args = [
@@ -140,10 +139,12 @@ def cmd_save():
         Argument(lambda: print('TODO'), '--descr', '-d', 'few words about the command\'s functionality'),
         Argument(lambda: print('TODO'), '--', None, 'command to be saved follows'),
     ]
-    while PARSER.may_have([ArgumentGroup('test', other_args)]): pass
+    PARSER.load_all([ArgumentGroup('save arguments (missing will be queried)', other_args)])
     args = PARSER.get_rest()
-    show_edit = False
 
+    if COMPLETE: return complete_nothing()
+
+    show_edit = False
     if len(args) == 0: # supply the last command from history
         history_file_location = join(os.environ['HOME'], CONF['history_home'])
         history_command_in_binary = subprocess.check_output(['tail', '-1', history_file_location])
@@ -443,6 +444,9 @@ class Parser:
             print_str(ArgumentGroup.to_str(groups), end='')
             sys.exit(SUCCESSFULL_EXECUTION)
         return False
+
+    def load_all(self, groups: [ArgumentGroup]):
+        while self.may_have(groups): pass
 
 def remove_first_argument():
     sys.argv = [sys.argv[0]] + sys.argv[2:]
