@@ -4,10 +4,6 @@ Completion utility class
 
 from os.path import join
 
-from shcmdmgr import config
-
-COMPLETE = None
-
 class Complete:
     def __init__(self, last_arg: str):
         self.last_arg = last_arg
@@ -25,11 +21,16 @@ class Complete:
     def words(self, words):
         self.__words = words
 
-def setup_script_path(shell: str) -> str:
-    return join(config.DATA_PATH, 'completion/setup.{}'.format(shell))
+def complete_nothing():
+    return SUCCESSFULL_EXECUTION
 
-def get_complete(last_arg: str) -> Complete:
-    global COMPLETE
-    if not COMPLETE:
-        COMPLETE = Complete(last_arg)
-    return COMPLETE
+def complete_commands(words):
+    cmd_commands = ['--save', '--find', '--version', '--help', '-s', '-f', '-h']
+    flags = ['-q', '-v', '-d']
+    COMPLETE.words += words
+    COMPLETE.words += cmd_commands
+    COMPLETE.words += flags
+    return SUCCESSFULL_EXECUTION
+
+def completion_setup_script_path(shell: str, config) -> str:
+    return join(config.DATA_PATH, 'completion/setup.{}'.format(shell))

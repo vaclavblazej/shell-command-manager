@@ -25,10 +25,11 @@ import enum
 from os.path import join, exists
 from string import Template
 
-from shcmdmgr import util, config, filemanip, structure, complete
-from shcmdmgr.cio import quote, print_str, input_str
+from shcmdmgr import util, config, filemanip, structure, complete, args, parser, cio
 from shcmdmgr.structure import Command, Project
 from shcmdmgr.config import SCRIPT_PATH, GLOBAL_COMMANDS_FILE_LOCATION
+from shcmdmgr.args import Argument, CommandArgument, ArgumentGroup
+from shcmdmgr.parser import Parser
 
 SUCCESSFULL_EXECUTION = 0
 USER_ERROR = 1 # argument format is fine, but content is wrong
@@ -39,34 +40,45 @@ COMPLETE = None
 PRINT_HELP = False
 PROJECT_ROOT_VAR = 'project_root'
 DEFAULT_COMMAND_LOAD_DEJA_VU = False
-CONF = config.get_conf()
+FORM = None
+CONF = None
 LOGGER = None
 PARSER = None
 PROJECT = None
 PROJECT_ALIASES = None
 ALIASES = None
+ARGUMENT_GROUP = None
+FIXED_ARGUMENT_GROUP = None
 
 # == Main Logic ==================================================================
 
 def main():
+    global CONF
+    CONF = config.get_conf()
     global LOGGER
     LOGGER = config.get_logger()
+    global FORM
+    FORM = cio.Formatter(CONF, LOGGER)
+    global ARGUMENT_GROUP
+    ARGUMENT_GROUP = fixed_args()
+    global FIXED_ARGUMENT_GROUP
+    FIXED_ARGUMENT_GROUP = fixed_argument_groups()
     global PARSER
-    PARSER = Parser(sys.argv)
+    PARSER = Parser(sys.argv, PRINT_HELP) # todo changes after?
     PARSER.shift() # skip the program invocation
-    PARSER.load_all([FixedArgumentGroup.OUTPUT_ARGUMENTS])
+    PARSER.load_all([FIXED_ARGUMENT_GROUP['OUTPUT_ARGUMENTS']])
     LOGGER.setLevel(CONF['logging_level'])
     LOGGER.debug('Configuration: %s', str(CONF))
-    LOGGER.debug('Script folder: %s', quote(SCRIPT_PATH))
-    LOGGER.debug('Working directory: %s', quote(WORKING_DIRECTORY))
+    LOGGER.debug('Script folder: %s', FORM.quote(SCRIPT_PATH))
+    LOGGER.debug('Working directory: %s', FORM.quote(WORKING_DIRECTORY))
     LOGGER.debug('Arguments: %s', str(sys.argv))
     global PROJECT
-    PROJECT = Project.retrieve_project_if_present(WORKING_DIRECTORY)
+    PROJECT = Project.retrieve_project_if_present(WORKING_DIRECTORY, FORM)
     if PROJECT: os.environ[PROJECT_ROOT_VAR] = PROJECT.directory # expose variable to subprocesses
 
     load_aliases()
     load_project_aliases()
-    PARSER.load_all([FixedArgumentGroup.OPTIONAL_ARGUMENTS])
+    PARSER.load_all([ArgumentGroup.OPTIONAL_ARGUMENTS])
     if CONF['scope'] == 'auto':
         if PROJECT: CONF['scope'] = 'project'
         else: CONF['scope'] = 'global'
@@ -75,7 +87,7 @@ def main():
 def main_command():
     current_command = PARSER.peek()
     if not current_command:
-        if COMPLETE: return complete_commands()
+        if COMPLETE: return complete_commands(ALIASES + PROJECT_ALIASES)
         if PRINT_HELP: return print_general_help()
         if CONF['default_command']:
             new_args = CONF['default_command'].split(' ')
@@ -90,8 +102,8 @@ def main_command():
         LOGGER.warning('No command given')
         return USER_ERROR
 
-    if not PARSER.may_have([FixedArgumentGroup.PROJECT_COMMANDS, FixedArgumentGroup.CUSTOM_COMMANDS, FixedArgumentGroup.CMD_COMMANDS]):
-        LOGGER.warning('The argument/command %s was not found', quote(current_command))
+    if not PARSER.may_have([ArgumentGroup.PROJECT_COMMANDS, ArgumentGroup.CUSTOM_COMMANDS, ArgumentGroup.CMD_COMMANDS]):
+        LOGGER.warning('The argument/command %s was not found', FORM.quote(current_command))
         LOGGER.info('run "cmd --help" if you are having trouble')
         return USER_ERROR
 
@@ -104,16 +116,16 @@ def print_general_help():
     help_str += 'usage: cmd [-q|-v|-d] [-g|-p] <command> [<args>]\n'
     help_str += '\n'
     help_str += 'Manage custom commands from a central location\n'
-    print_str(help_str)
+    FORM.print_str(help_str)
     main_groups = [
-        FixedArgumentGroup.PROJECT_COMMANDS,
-        FixedArgumentGroup.CUSTOM_COMMANDS,
-        FixedArgumentGroup.CMD_SHOWN_COMMANDS,
-        FixedArgumentGroup.OPTIONAL_ARGUMENTS,
+        ArgumentGroup.PROJECT_COMMANDS,
+        ArgumentGroup.CUSTOM_COMMANDS,
+        ArgumentGroup.CMD_SHOWN_COMMANDS,
+        ArgumentGroup.OPTIONAL_ARGUMENTS,
     ]
-    print_str(ArgumentGroup.to_str(main_groups), end='')
+    FORM.print_str(ArgumentGroup.to_str(main_groups), end='')
     # additional_str = ''
-    # print_str(additional_str) #todo print info including special options (such as --complete)
+    # FORM.print_str(additional_str) #todo print info including special options (such as --complete)
     return SUCCESSFULL_EXECUTION
 
 # == Commands ====================================================================
@@ -127,7 +139,7 @@ def cmd_help():
 
 def cmd_version():
     if COMPLETE: return complete_nothing()
-    print_str('cmd version ' + config.VERSION)
+    FORM.print_str('cmd version ' + config.VERSION)
     PARSER.expect_nothing()
     return SUCCESSFULL_EXECUTION
 
@@ -165,7 +177,7 @@ def cmd_save():
     if show_edit:
         command_to_save = input_str('The command to be saved: ', prefill=command_to_save)
     else:
-        print_str('Saving command: ' + command_to_save)
+        FORM.print_str('Saving command: ' + command_to_save)
 
     commands_file_location = get_context_command_file_location()
 
@@ -193,7 +205,7 @@ def cmd_find():
     selected_commands = []
     try:
         while True:
-            print_str(40 * '=')
+            FORM.print_str(40 * '=')
             arguments = PARSER.get_rest()
             if len(arguments) != 0:
                 query = ' '.join(arguments)
@@ -203,7 +215,7 @@ def cmd_find():
             try:
                 idx = int(query)
                 if idx not in range(1, len(selected_commands)+1):
-                    print_str('invalid index')
+                    FORM.print_str('invalid index')
                     continue
                 selected_commands[idx-1].execute(PARSER.get_rest())
                 break
@@ -218,7 +230,7 @@ def cmd_find():
                     results.append((priority, formatted_text, command))
             total_results_count = len(results)
             if total_results_count == 0:
-                print_str('No results found')
+                FORM.print_str('No results found')
             results = sorted(results, reverse=True) # by priority
             selected_commands = []
             cmd_showing_count = max_cmd_count
@@ -227,13 +239,13 @@ def cmd_find():
             for result in results[:cmd_showing_count]:
                 (_, text, command) = result
                 selected_commands.append(command)
-                print_str('--- ' + str(index) + ' ' + (30 * '-'))
-                print_str(text, end='')
+                FORM.print_str('--- ' + str(index) + ' ' + (30 * '-'))
+                FORM.print_str(text, end='')
                 index = index+1
             if total_results_count > cmd_showing_count:
-                print_str('\nand ' + str(total_results_count-cmd_showing_count) + ' other commands')
+                FORM.print_str('\nand ' + str(total_results_count-cmd_showing_count) + ' other commands')
     except EOFError as _:
-        print_str()
+        FORM.print_str()
     return SUCCESSFULL_EXECUTION
 
 def cmd_edit():
@@ -263,11 +275,11 @@ def cmd_complete():
 def cmd_completion():
     shell = PARSER.shift()
     PARSER.expect_nothing()
-    completion_init_script_path = complete.setup_script_path(shell)
+    completion_init_script_path = complete.completion_setup_script_path(shell, CONF)
     if exists(completion_init_script_path):
-        print_str('source {} cmd'.format(completion_init_script_path))
+        FORM.print_str('source {} cmd'.format(completion_init_script_path))
     else:
-        raise Exception('unsuported shell {}, choose bash or zsh'.format(quote(shell)))
+        raise Exception('unsuported shell {}, choose bash or zsh'.format(FORM.quote(shell)))
     return SUCCESSFULL_EXECUTION
 
 def load_aliases(): # todo simplify
@@ -289,165 +301,43 @@ def load_project_aliases(): # todo push into the parser
         return [CommandArgument(cmd) for cmd in PROJECT.commands if cmd.alias]
     return None
 
-# == Completion ==================================================================
-
-def complete_nothing():
-    return SUCCESSFULL_EXECUTION
-
-def complete_commands():
-    cmd_commands = ['--save', '--find', '--version', '--help', '-s', '-f', '-h']
-    flags = ['-q', '-v', '-d']
-    COMPLETE.words += ALIASES
-    COMPLETE.words += PROJECT_ALIASES
-    COMPLETE.words += cmd_commands
-    COMPLETE.words += flags
-    return SUCCESSFULL_EXECUTION
-
-# == Argument parser =============================================================
-
-class Argument:
-    def __init__(self, function, arg_name, short_arg_name, help_str):
-        self.function = function
-        self.arg_name = arg_name
-        self.short_arg_name = short_arg_name
-        self.help_str = help_str or ''
-
-    @property
-    def show_name(self):
-        res = ''
-        if self.short_arg_name:
-            res += self.short_arg_name + ', '
-        res += self.arg_name
-        return res
-
-    def to_str(self, position=16):
-        (width, _) = util.get_terminal_dimensions()
-        width -= 2
-        offset = max(2, position - len(self.show_name))
-        line = '   ' + self.show_name + (offset * ' ') + self.help_str
-        total = ''
-        while width > position + 10:
-            total += line[:width] + '\n'
-            if len(line) <= width: break
-            line = '   ' + (position * ' ') + line[width:]
-        return total
-
-class CommandArgument(Argument):
-    def __init__(self, command: Command):
-        fun = lambda: (command.execute(PARSER.get_rest()))
-        super().__init__(fun, command.alias, None, command.description)
-
 def set_function(property_name, value):
     CONF[property_name] = value
 
 def create_set_function(property_name, value):
     return lambda: (set_function(property_name, value))
 
-def set_scope(scope):
-    CONF['scope'] = scope
+# == Arguments ===================================================================
 
-class FixedArgument(Argument, enum.Enum):
-    SAVE = ('--save', '-s', cmd_save, 'Saves command which is passed as further arguments')
-    FIND = ('--find', '-f', cmd_find, 'Opens an interactive search for saved commands')
-    EDIT = ('--edit', '-e', cmd_edit, 'Edit the command databse in text editor')
-    VERSION = ('--version', '-V', cmd_version, 'Prints out version information')
-    HELP = ('--help', '-h', cmd_help, 'Request detailed information about flags or commands')
-    COMPLETE = ('--complete', None, cmd_complete, 'Returns list of words which are supplied to the completion shell command')
-    COMPLETION = ('--completion', None, cmd_completion, 'Return shell command to be added to the .rc file to allow completion')
-    QUIET = ('--quiet', '-q', create_set_function('logging_level', config.QUIET_LEVEL), 'No output will be shown')
-    VERBOSE = ('--verbose', '-v', create_set_function('logging_level', config.VERBOSE_LEVEL), 'More detailed output information')
-    DEBUG = ('--debug', '-d', create_set_function('logging_level', config.DEBUG_LEVEL), 'Very detailed messages of script\'s inner workings')
-    PROJECT_SCOPE = ('--project', '-p', lambda: set_scope('project'), 'Applies the command in the project command collection')
-    GLOBAL_SCOPE = ('--global', '-g', lambda: set_scope('global'), 'Applies the command in the global command collection')
+def fixed_args():
+    res = {}
+    res['SAVE'] = ('--save', '-s', cmd_save, 'Saves command which is passed as further arguments')
+    res['FIND'] = ('--find', '-f', cmd_find, 'Opens an interactive search for saved commands')
+    res['EDIT'] = ('--edit', '-e', cmd_edit, 'Edit the command databse in text editor')
+    res['VERSION'] = ('--version', '-V', cmd_version, 'Prints out version information')
+    res['HELP'] = ('--help', '-h', cmd_help, 'Request detailed information about flags or commands')
+    res['COMPLETE'] = ('--complete', None, cmd_complete, 'Returns list of words which are supplied to the completion shell command')
+    res['COMPLETION'] = ('--completion', None, cmd_completion, 'Return shell command to be added to the .rc file to allow completion')
+    res['QUIET'] = ('--quiet', '-q', create_set_function('logging_level', config.QUIET_LEVEL), 'No output will be shown')
+    res['VERBOSE'] = ('--verbose', '-v', create_set_function('logging_level', config.VERBOSE_LEVEL), 'More detailed output information')
+    res['DEBUG'] = ('--debug', '-d', create_set_function('logging_level', config.DEBUG_LEVEL), 'Very detailed messages of script\'s inner workings')
+    res['PROJECT_SCOPE'] = ('--project', '-p', lambda: set_scope('project'), 'Applies the command in the project command collection')
+    res['GLOBAL_SCOPE'] = ('--global', '-g', lambda: set_scope('global'), 'Applies the command in the global command collection')
+    return res
 
-    def __init__(self, arg_name: str, short_arg_name: str, function, help_str: str):
-        super().__init__(function, arg_name, short_arg_name, help_str)
+def fixed_argument_groups():
+    res = {}
+    res['PROJECT_COMMANDS'] = ArgumentGroup('project commands', None, load_project_aliases)
+    res['CUSTOM_COMMANDS'] = ArgumentGroup('custom commands', None, load_aliases, 'You may add new custom commands via "cmd --save if the command is given alias, it will show up here')
+    global ARGUMENT_GROUP
+    a = ARGUMENT_GROUP
+    res['CMD_COMMANDS'] = ArgumentGroup('management commands', [a['SAVE'], a['FIND'], a['EDIT'], a['VERSION'], a['HELP'], a['COMPLETE'], a['COMPLETION']])
+    res['CMD_SHOWN_COMMANDS'] = ArgumentGroup('management commands', [a['SAVE'], a['FIND'], a['EDIT'], a['VERSION'], a['HELP']])
+    res['OUTPUT_ARGUMENTS'] = ArgumentGroup('', [a['QUIET'], a['VERBOSE'], a['DEBUG']])
+    res['OPTIONAL_ARGUMENTS'] = ArgumentGroup('optional a', [a['QUIET'], a['VERBOSE'], a['DEBUG'], a['PROJECT_SCOPE'], a['GLOBAL_SCOPE']])
+    return res
 
-
-class ArgumentGroup:
-    def __init__(self, group_name: str, arguments: [Argument] = None, arg_fun=None, if_empty: str = None):
-        self.group_name = group_name
-        self._arguments = arguments
-        self.arg_fun = arg_fun
-        self.if_empty = if_empty
-
-    @property
-    def arguments(self):
-        if self._arguments:
-            return self._arguments
-        if self.arg_fun:
-            return self.arg_fun()
-        return None
-
-    @staticmethod
-    def to_str(groups: []):
-        res = ""
-        for group in groups:
-            if res != '': res += '\n'
-            args = group.arguments
-            if not args and group.arg_fun:
-                args = group.arg_fun()
-            if args and len(args) != 0:
-                res += group.group_name + ":\n"
-                for argument in args:
-                    res += argument.to_str()
-            elif group.if_empty:
-                res += group.group_name + ":\n"
-                res += '   ' + group.if_empty + '\n'
-        return res
-
-
-class FixedArgumentGroup(ArgumentGroup, enum.Enum):
-    PROJECT_COMMANDS = ('project commands', None, load_project_aliases)
-    CUSTOM_COMMANDS = ('custom commands', None, load_aliases, 'You may add new custom commands via "cmd --save if the command is given alias, it will show up here')
-    CMD_COMMANDS = ('management commands', [FixedArgument.SAVE, FixedArgument.FIND, FixedArgument.EDIT, FixedArgument.VERSION, FixedArgument.HELP, FixedArgument.COMPLETE, FixedArgument.COMPLETION])
-    CMD_SHOWN_COMMANDS = ('management commands', [FixedArgument.SAVE, FixedArgument.FIND, FixedArgument.EDIT, FixedArgument.VERSION, FixedArgument.HELP])
-    OUTPUT_ARGUMENTS = ('', [FixedArgument.QUIET, FixedArgument.VERBOSE, FixedArgument.DEBUG])
-    OPTIONAL_ARGUMENTS = ('optional argument', [FixedArgument.QUIET, FixedArgument.VERBOSE, FixedArgument.DEBUG, FixedArgument.PROJECT_SCOPE, FixedArgument.GLOBAL_SCOPE])
-
-class Parser:
-    def __init__(self, arguments):
-        self.arguments = arguments
-
-    def peek(self):
-        if len(self.arguments) != 0:
-            return self.arguments[0]
-        return None
-
-    def get_rest(self):
-        if PRINT_HELP:
-            sys.exit(SUCCESSFULL_EXECUTION)
-        res = self.arguments
-        self.arguments = []
-        return res
-
-    def shift(self):
-        res = self.peek()
-        self.arguments = self.arguments[1:]
-        return res
-
-    def expect_nothing(self):
-        cur = self.peek()
-        if cur:
-            raise Exception('unexpected parameter ' + quote(cur))
-
-    def may_have(self, groups: [ArgumentGroup]):
-        current = self.peek()
-        if current:
-            for args in [group.arguments for group in groups if group.arguments]:
-                for arg in args:
-                    if current in [arg.arg_name, arg.short_arg_name]:
-                        self.shift()
-                        arg.function()
-                        return True
-        elif PRINT_HELP:
-            print_str(ArgumentGroup.to_str(groups), end='')
-            sys.exit(SUCCESSFULL_EXECUTION)
-        return False
-
-    def load_all(self, groups: [ArgumentGroup]):
-        while self.may_have(groups): pass
-
+# == Argument parser =============================================================
 def remove_first_argument():
     sys.argv = [sys.argv[0]] + sys.argv[2:]
 
@@ -457,5 +347,5 @@ if __name__ == '__main__':
     try:
         sys.exit(main())
     except KeyboardInterrupt:
-        print_str()
+        FORM.print_str()
         LOGGER.critical('Manually interrupted!')

@@ -15,11 +15,9 @@ TEXT_LEVEL = 30
 QUIET_LEVEL = 60
 INFO_LEVEL = logging.INFO
 DEBUG_LEVEL = logging.DEBUG
-CONF = None
 VERSION = '0.1.2-dev0'
-LOGGER = None
 
-def setup_logging():
+def get_logger():
     global LOGGER
     logging.addLevelName(VERBOSE_LEVEL, 'VERBOSE')
     def verbose(self, message, *args, **kws):
@@ -33,16 +31,8 @@ def setup_logging():
     LOGGER.addHandler(handler)
     return LOGGER
 
-def get_logger():
-    global LOGGER
-    if not LOGGER:
-        LOGGER = setup_logging()
-    return LOGGER
-
 def get_conf():
-    global CONF
-    if CONF: return CONF
-    CONF = {'logging_level': INFO_LEVEL,}  # logging basic set up before config loads
-    CONF.update(filemanip.load_json_file(GLOBAL_CONFIG_FILE))
-    CONF.update(filemanip.load_json_file(LOCAL_CONFIG_FILE))
-    return CONF
+    conf = {'logging_level': INFO_LEVEL,}  # logging basic set up before config loads
+    conf.update(filemanip.load_json_file(GLOBAL_CONFIG_FILE))
+    conf.update(filemanip.load_json_file(LOCAL_CONFIG_FILE))
+    return conf

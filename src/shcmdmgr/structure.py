@@ -6,7 +6,6 @@ from os.path import join, exists, dirname, basename
 from string import Template
 
 from shcmdmgr import config, filemanip, process
-from shcmdmgr.cio import quote, print_str, search_and_format
 
 PROJECT_SPECIFIC_SUBFOLDER = ".cmd"
 
@@ -68,7 +67,7 @@ def load_commands(commands_file_location) -> [Command]:
 
 
 class Project:
-    def __init__(self, directory):
+    def __init__(self, directory, formatter):
         if not directory:
             raise Exception('The project directory {} is invalid'.format(quote(directory)))
         self.directory = directory
@@ -90,9 +89,9 @@ class Project:
         if exists(self.help_script):
             process.run_script([self.help_script])
         else:
-            print_str('You are in project: ' + self.directory)
-            print_str('This project has no explicit help')
-            print_str('Add it by creating a script in \'{project dir}/.cmd/help.py\' which will be executed (to pring help) instead of this message')
+            formatter.print_str('You are in project: ' + self.directory)
+            formatter.print_str('This project has no explicit help')
+            formatter.print_str('Add it by creating a script in \'{project dir}/.cmd/help.py\' which will be executed (to pring help) instead of this message')
 
     @staticmethod
     def find_location(search_directory):
@@ -106,8 +105,8 @@ class Project:
             currently_checked_folder = dirname(currently_checked_folder)
 
     @staticmethod
-    def retrieve_project_if_present(search_directory):
+    def retrieve_project_if_present(search_directory, formatter):
         project_directory = Project.find_location(search_directory)
         if project_directory:
-            return Project(project_directory)
+            return Project(project_directory, formatter)
         return None
