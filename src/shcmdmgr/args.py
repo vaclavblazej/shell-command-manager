@@ -1,5 +1,5 @@
 
-from shcmdmgr.structure import Command
+from shcmdmgr.command import Command
 
 class Argument:
     def __init__(self, function, arg_name, short_arg_name, help_str):
