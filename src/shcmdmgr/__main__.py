@@ -37,17 +37,8 @@ USER_ERROR = 1 # argument format is fine, but content is wrong
 INVALID_ARGUMENT = 129 # argument format is wrong
 
 WORKING_DIRECTORY = os.getcwd()
-COMPLETE = None
 PRINT_HELP = False
-project_ROOT_VAR = 'project_root'
-DEFAULT_COMMAND_LOAD_DEJA_VU = False
-form = None
-conf = None
-logger = None
-parser = None
-project = None
-project_ALIASES = None
-ALIASES = None
+PROJECT_ROOT_VAR = 'project_root'
 
 # == Main Logic ==================================================================
 
@@ -55,7 +46,7 @@ def main():
     conf = config.get_conf()
     logger = config.get_logger()
     form = cio.Formatter(conf, logger)
-    fixed_argument_group = fixed_argument_groups()
+    fixed_argument_group = fixed_argument_group()
     parser = Parser(sys.argv, PRINT_HELP) # todo changes after?
     parser.shift() # skip the program invocation
     parser.load_all([fixed_argument_group['OUTPUT_ARGUMENTS']])
@@ -65,7 +56,7 @@ def main():
     logger.debug('Working directory: %s', form.quote(WORKING_DIRECTORY))
     logger.debug('Arguments: %s', str(sys.argv))
     project = Project.retrieve_project_if_present(WORKING_DIRECTORY, form)
-    if project: os.environ[project_ROOT_VAR] = project.directory # expose variable to subprocesses
+    if project: os.environ[PROJECT_ROOT_VAR] = project.directory # expose variable to subprocesses
     # load_aliases() # todo
     # load_project_aliases()
     parser.load_all([ArgumentGroup.OPTIONAL_ARGUMENTS])
@@ -81,20 +72,20 @@ class App:
         self.form = form
         self.fixed_argument_group = fixed_argument_group
         self.parser = parser
+        self.default_command_load_deja_vu = False
 
     def main_command():
         current_command = parser.peek()
         if not current_command:
-            if COMPLETE: return complete_commands(ALIASES + project_ALIASES)
+            if complete: return complete_commands(aliases + project_aliases)
             if PRINT_HELP: return print_general_help()
             if self.conf['default_command']:
                 new_args = self.conf['default_command'].split(' ')
-                global DEFAULT_COMMAND_LOAD_DEJA_VU
                 if len(new_args) != 0: # prevent doing nothing due to empty default command
-                    if DEFAULT_COMMAND_LOAD_DEJA_VU: # prevent adding default command multiple times
+                    if default_command_load_deja_vu: # prevent adding default command multiple times
                         logger.warning('The default command is invalid, it must include a command argument')
                         return USER_ERROR
-                    DEFAULT_COMMAND_LOAD_DEJA_VU = True
+                    default_command_load_deja_vu = True
                     sys.argv += new_args
                     return main()
             logger.warning('No command given')
@@ -125,20 +116,20 @@ class App:
 
     # == Commands ====================================================================
 
-    def cmd_help():
-        if COMPLETE: return main_command()
+    def cmd_help(self):
+        if self.complete: return main_command()
         global PRINT_HELP
         PRINT_HELP = True
         remove_first_argument()
         return main_command()
 
-    def cmd_version():
-        if COMPLETE: return complete_nothing()
+    def cmd_version(self):
+        if self.complete: return self.complete_nothing()
         form.print_str('cmd version ' + config.VERSION)
         parser.expect_nothing()
         return SUCCESSFULL_EXECUTION
 
-    def cmd_save():
+    def cmd_save(self):
         alias = ''
         description = ''
         other_args = [
@@ -148,7 +139,7 @@ class App:
         ]
         parser.load_all([ArgumentGroup('save arguments (missing will be queried)', other_args)])
         args = parser.get_rest()
-        if COMPLETE: return complete_nothing()
+        if self.complete: return self.complete_nothing()
         show_edit = False
         if len(args) == 0: # supply the last command from history
             history_file_location = join(os.environ['HOME'], self.conf['history_home'])
@@ -159,7 +150,7 @@ class App:
         if len(args) > 0 and exists(args[0]): # substitute relative file path for absolute
             if self.conf['scope'] == 'project':
                 path_from_project_root = os.path.relpath(join(WORKING_DIRECTORY, args[0]), project.directory)
-                args[0] = '${root_var}/{path}'.format(project_ROOT_VAR, path_from_project_root)
+                args[0] = '${root_var}/{path}'.format(PROJECT_ROOT_VAR, path_from_project_root)
             if self.conf['scope'] == 'global':
                 args[0] = os.path.realpath(join(WORKING_DIRECTORY, args[0]))
             show_edit = True
@@ -183,8 +174,8 @@ class App:
         if self.conf['scope'] == 'global': return GLOBAL_COMMANDS_FILE_LOCATION
         return None
 
-    def cmd_find():
-        if COMPLETE: return complete_nothing()
+    def cmd_find(self):
+        if self.complete: return self.complete_nothing()
         max_cmd_count = 4
         max_cmd_count_slack = 2
         commands_db = load_commands(GLOBAL_COMMANDS_FILE_LOCATION)
@@ -236,8 +227,8 @@ class App:
             form.print_str()
         return SUCCESSFULL_EXECUTION
 
-    def cmd_edit():
-        if COMPLETE: return complete_nothing()
+    def cmd_edit(self):
+        if self.complete: return self.complete_nothing()
         editor = 'vim'
         try:
             editor = Template('$EDITOR').substitute(os.environ)
@@ -246,24 +237,23 @@ class App:
         subprocess.run([editor, get_context_command_file_location()], check=True)
         return SUCCESSFULL_EXECUTION
 
-    def cmd_complete():
-        global COMPLETE
+    def cmd_complete(self):
         last_arg = sys.argv[-1]
         sys.argv = sys.argv[:-1]
         remove_first_argument()
-        if COMPLETE: return main()
-        COMPLETE = complete.get_complete(last_arg)
+        if self.complete: return main()
+        self.complete = complete.get_complete(last_arg)
         logger.setLevel(config.QUIET_LEVEL) # fix when set after main() call
         main_res = main()
-        for word in COMPLETE.words:
+        for word in self.complete.words:
             print(word, end=' ')
         print()
         return main_res
 
-    def cmd_completion():
+    def cmd_completion(self):
         shell = parser.shift()
         parser.expect_nothing()
-        completion_init_script_path = complete.completion_setup_script_path(shell, self.conf)
+        completion_init_script_path = self.complete.completion_setup_script_path(shell, self.conf)
         if exists(completion_init_script_path):
             form.print_str('source {} cmd'.format(completion_init_script_path))
         else:
@@ -272,20 +262,19 @@ class App:
 
     def load_aliases(): # todo simplify
         commands_db = structure.load_commands(GLOBAL_COMMANDS_FILE_LOCATION)
-        global ALIASES
-        ALIASES = {}
+        aliases = {}
         for command in commands_db:
             if command.alias:
-                ALIASES[command.alias] = Command(command.execute, command.description)
+                aliases[command.alias] = Command(command.execute, command.description)
         return [CommandArgument(cmd) for cmd in commands_db if cmd.alias]
 
     def load_project_aliases(): # todo push into the parser
-        global project_ALIASES
-        project_ALIASES = {}
+        global project_aliases
+        project_aliases = {}
         if project:
             for command in project.commands:
                 if command.alias:
-                    project_ALIASES[command.alias] = Command(command.execute, command.description)
+                    project_aliases[command.alias] = Command(command.execute, command.description)
             return [CommandArgument(cmd) for cmd in project.commands if cmd.alias]
         return None
 
@@ -304,22 +293,31 @@ class App:
         res['HELP'] = ('--help', '-h', self.cmd_help, 'Request detailed information about flags or commands')
         res['COMPLETE'] = ('--complete', None, self.cmd_complete, 'Returns list of words which are supplied to the completion shell command')
         res['COMPLETION'] = ('--completion', None, self.cmd_completion, 'Return shell command to be added to the .rc file to allow completion')
-        res['QUIET'] = ('--quiet', '-q', create_set_function('logging_level', self.config, self.config.QUIET_LEVEL), 'No output will be shown')
-        res['VERBOSE'] = ('--verbose', '-v', create_set_function('logging_level', self.config, self.config.VERBOSE_LEVEL), 'More detailed output information')
-        res['DEBUG'] = ('--debug', '-d', create_set_function('logging_level', self.config, self.config.DEBUG_LEVEL), 'Very detailed messages of script\'s inner workings')
-        res['project_SCOPE'] = ('--project', '-p', lambda: set_scope('project'), 'Applies the command in the project command collection')
-        res['GLOBAL_SCOPE'] = ('--global', '-g', lambda: set_scope('global'), 'Applies the command in the global command collection')
         return res
 
     def command_groups(self):
+        res = {}
         res['PROJECT_COMMANDS'] = ArgumentGroup('project commands', None, self.load_project_aliases)
         res['CUSTOM_COMMANDS'] = ArgumentGroup('custom commands', None, self.load_aliases, 'You may add new custom commands via "cmd --save if the command is given alias, it will show up here')
         a = self.command_args()
         res['CMD_COMMANDS'] = ArgumentGroup('management commands', [a['SAVE'], a['FIND'], a['EDIT'], a['VERSION'], a['HELP'], a['COMPLETE'], a['COMPLETION']])
         res['CMD_SHOWN_COMMANDS'] = ArgumentGroup('management commands', [a['SAVE'], a['FIND'], a['EDIT'], a['VERSION'], a['HELP']])
-        res['OUTPUT_ARGUMENTS'] = ArgumentGroup('', [a['QUIET'], a['VERBOSE'], a['DEBUG']])
-        res['OPTIONAL_ARGUMENTS'] = ArgumentGroup('optional a', [a['QUIET'], a['VERBOSE'], a['DEBUG'], a['project_SCOPE'], a['GLOBAL_SCOPE']])
         return res
+
+def gl_command_args():
+    res = {}
+    res['QUIET'] = ('--quiet', '-q', create_set_function('logging_level', self.config, self.config.QUIET_LEVEL), 'No output will be shown')
+    res['VERBOSE'] = ('--verbose', '-v', create_set_function('logging_level', self.config, self.config.VERBOSE_LEVEL), 'More detailed output information')
+    res['DEBUG'] = ('--debug', '-d', create_set_function('logging_level', self.config, self.config.DEBUG_LEVEL), 'Very detailed messages of script\'s inner workings')
+    res['project_SCOPE'] = ('--project', '-p', lambda: set_scope('project'), 'Applies the command in the project command collection')
+    res['GLOBAL_SCOPE'] = ('--global', '-g', lambda: set_scope('global'), 'Applies the command in the global command collection')
+    return res
+
+def gl_command_groups():
+    res = {}
+    res['OUTPUT_ARGUMENTS'] = ArgumentGroup('', [a['QUIET'], a['VERBOSE'], a['DEBUG']])
+    res['OPTIONAL_ARGUMENTS'] = ArgumentGroup('optional a', [a['QUIET'], a['VERBOSE'], a['DEBUG'], a['project_SCOPE'], a['GLOBAL_SCOPE']])
+    return res
 
 def set_function(what, property_name, value):
     what[property_name] = value

@@ -36,10 +36,6 @@ class CommandArgument(Argument):
 def set_scope(scope):
     CONF['scope'] = scope
 
-# class FixedArgument(Argument):
-    # def __init__(self, arg_name: str, short_arg_name: str, function, help_str: str):
-        # super().__init__(function, arg_name, short_arg_name, help_str)
-
 class ArgumentGroup:
     def __init__(self, group_name: str, arguments: [Argument] = None, arg_fun=None, if_empty: str = None):
         self.group_name = group_name
