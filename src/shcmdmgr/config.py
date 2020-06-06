@@ -3,6 +3,10 @@ from os.path import join, dirname, realpath, exists
 
 from shcmdmgr import filemanip
 
+SUCCESSFULL_EXECUTION = 0
+USER_ERROR = 1 # argument format is fine, but content is wrong
+INVALID_ARGUMENT = 129 # argument format is wrong
+
 SCRIPT_PATH = dirname(realpath(__file__))
 # SCRIPT_PATH = dirname(dirname(realpath(__file__)))
 DATA_PATH = join(SCRIPT_PATH, 'data')

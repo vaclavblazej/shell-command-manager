@@ -2,6 +2,7 @@ import os
 from os.path import join, exists, dirname, basename
 
 from shcmdmgr import filemanip, process
+from shcmdmgr.command import load_commands
 
 PROJECT_SPECIFIC_SUBFOLDER = ".cmd"
 

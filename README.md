@@ -1,6 +1,6 @@
 **DISCLAIMER (WORK IN PROGRESS):**
 As of May 2020 this project is work in progress.
-The alpha release is planned for June.
+The alpha release is planned for June 2020.
 
 It **IS** designed to
 

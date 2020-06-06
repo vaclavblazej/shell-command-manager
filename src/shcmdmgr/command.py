@@ -5,6 +5,7 @@ import os
 
 from os.path import join, exists, dirname, basename
 from string import Template
+from shcmdmgr import filemanip
 
 class Command:
     # command can be either str, or a function (str[]) -> None
