@@ -1,17 +1,18 @@
 import re
 import readline
 
+from shcmdmgr import config
+
+def quote(to_print):
+    return '"' + str(to_print) + '"'
+
 class Formatter:
-    def __init__(self, config, logger):
-        self.config = config
+    def __init__(self, logger):
         self.logger = logger
 
-    def quote(self, to_print):
-        return '"' + str(to_print) + '"'
-
     def print_str(self, text="", level=None, end='\n'):
-        if not level: level = self.config.TEXT_LEVEL
-        if level >= logger.level:
+        if not level: level = config.TEXT_LEVEL
+        if level >= self.logger.level:
             print(text, end=end)
 
     def search_and_format(self, pattern: str, text: str) -> (int, str):
@@ -37,8 +38,8 @@ class Formatter:
 
     # https://stackoverflow.com/questions/8505163/is-it-possible-to-prefill-a-input-in-python-3s-command-line-interface
     def input_str(self, prompt, prefill='', level=None):
-        if not level: level = self.config.TEXT_LEVEL
-        if level < logger.level: prompt = ''
+        if not level: level = config.TEXT_LEVEL
+        if level < self.logger.level: prompt = ''
         def hook():
             readline.insert_text(prefill)
             readline.redisplay()

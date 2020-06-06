@@ -1,5 +1,5 @@
 import logging
-from os.path import join, dirname, realpath, exists
+from os.path import join, dirname, realpath
 
 from shcmdmgr import filemanip
 
@@ -22,18 +22,17 @@ DEBUG_LEVEL = logging.DEBUG
 VERSION = '0.1.2-dev0'
 
 def get_logger():
-    global LOGGER
     logging.addLevelName(VERBOSE_LEVEL, 'VERBOSE')
     def verbose(self, message, *args, **kws):
         if self.isEnabledFor(VERBOSE_LEVEL):
             self._log(VERBOSE_LEVEL, message, args, **kws)
     logging.Logger.verbose = verbose
-    LOGGER = logging.getLogger()
+    logger = logging.getLogger()
     handler = logging.StreamHandler()
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
     handler.setFormatter(formatter)
-    LOGGER.addHandler(handler)
-    return LOGGER
+    logger.addHandler(handler)
+    return logger
 
 def get_conf():
     conf = {'logging_level': INFO_LEVEL,}  # logging basic set up before config loads

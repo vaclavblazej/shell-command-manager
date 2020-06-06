@@ -1,20 +1,20 @@
 import sys
 
+from shcmdmgr import config, cio
 from shcmdmgr.args import ArgumentGroup
 
 class Parser:
-    def __init__(self, arguments, print_help):
+    def __init__(self, arguments):
         self.arguments = arguments
-        self.print_help = print_help
 
     def peek(self):
         if len(self.arguments) != 0:
             return self.arguments[0]
         return None
 
-    def get_rest(self):
-        if self.print_help:
-            sys.exit(SUCCESSFULL_EXECUTION)
+    def get_rest(self, print_help):
+        if print_help:
+            sys.exit(config.SUCCESSFULL_EXECUTION)
         res = self.arguments
         self.arguments = []
         return res
@@ -27,9 +27,9 @@ class Parser:
     def expect_nothing(self):
         cur = self.peek()
         if cur:
-            raise Exception('unexpected parameter ' + quote(cur))
+            raise Exception('unexpected parameter ' + cio.quote(cur))
 
-    def may_have(self, groups: [ArgumentGroup]):
+    def may_have(self, groups: [ArgumentGroup], print_help):
         current = self.peek()
         if current:
             for args in [group.arguments for group in groups if group.arguments]:
@@ -38,10 +38,10 @@ class Parser:
                         self.shift()
                         arg.function()
                         return True
-        elif self.print_help:
-            print_str(ArgumentGroup.to_str(groups), end='')
-            sys.exit(SUCCESSFULL_EXECUTION)
+        elif print_help:
+            # print_str(ArgumentGroup.to_str(groups), end='') #fixme
+            sys.exit(config.SUCCESSFULL_EXECUTION)
         return False
 
-    def load_all(self, groups: [ArgumentGroup]):
-        while self.may_have(groups): pass
+    def load_all(self, groups: [ArgumentGroup], print_help):
+        while self.may_have(groups, print_help): pass

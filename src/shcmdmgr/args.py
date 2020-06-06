@@ -1,8 +1,9 @@
 
+from shcmdmgr import util, process
 from shcmdmgr.command import Command
 
 class Argument:
-    def __init__(self, function, arg_name, short_arg_name, help_str):
+    def __init__(self, arg_name: str, short_arg_name: str, function: any, help_str: str):
         self.function = function
         self.arg_name = arg_name
         self.short_arg_name = short_arg_name
@@ -29,12 +30,9 @@ class Argument:
         return total
 
 class CommandArgument(Argument):
-    def __init__(self, command: Command):
-        fun = lambda: (command.execute(PARSER.get_rest()))
-        super().__init__(fun, command.alias, None, command.description)
-
-def set_scope(scope):
-    CONF['scope'] = scope
+    def __init__(self, command: Command, logger, parser):
+        fun = lambda: (process.execute(logger, command, parser.get_rest(False)))
+        super().__init__(command.alias, None, fun, command.description)
 
 class ArgumentGroup:
     def __init__(self, group_name: str, arguments: [Argument] = None, arg_fun=None, if_empty: str = None):

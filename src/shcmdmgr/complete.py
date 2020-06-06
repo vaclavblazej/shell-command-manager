@@ -1,5 +1,5 @@
 '''
-Completion utility class 
+Completion utility class
 '''
 
 from os.path import join
@@ -23,16 +23,16 @@ class Complete:
     def words(self, words):
         self.__words = words
 
-def complete_nothing():
-    return config.SUCCESSFULL_EXECUTION
+    def nothing(self):
+        return config.SUCCESSFULL_EXECUTION
 
-def complete_commands(words):
-    cmd_commands = ['--save', '--find', '--version', '--help', '-s', '-f', '-h']
-    flags = ['-q', '-v', '-d']
-    COMPLETE.words += words
-    COMPLETE.words += cmd_commands
-    COMPLETE.words += flags
-    return config.SUCCESSFULL_EXECUTION
+    def complete_commands(self, words):
+        cmd_commands = ['--save', '--find', '--version', '--help', '-s', '-f', '-h']
+        flags = ['-q', '-v', '-d']
+        self.words += words
+        self.words += cmd_commands
+        self.words += flags
+        return config.SUCCESSFULL_EXECUTION
 
-def completion_setup_script_path(shell: str, config) -> str:
+def completion_setup_script_path(shell: str) -> str:
     return join(config.DATA_PATH, 'completion/setup.{}'.format(shell))
