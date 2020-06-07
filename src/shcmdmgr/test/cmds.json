@@ -4,5 +4,11 @@
         "description": "Show the version number of the system",
         "alias": "sysversion",
         "creation_time": "2020-04-11 00:24:27"
+    },
+    {
+        "command": "lsb_release -a",
+        "description": "",
+        "alias": "",
+        "creation_time": "2020-04-11 00:24:27"
     }
 ]

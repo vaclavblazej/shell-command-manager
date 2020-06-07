@@ -61,12 +61,21 @@ class TestMainGeneral(unittest.TestCase):
     def test_main_no_param(self):
         make_app([]).main_command()
 
-    def test_main_no_param(self):
+    def test_main_version(self):
         make_app(['--version']).main_command()
 
     def test_main_completion(self):
         make_app(['--complete', '']).main_command()
         make_app(['--complete', '--version', '']).main_command()
+
+    def test_main_help(self):
+        make_app(['--help']).main_command()
+        make_app(['--h']).main_command()
+
+    def test_main_output_settings(self):
+        make_app(['--quiet']).main_command()
+        make_app(['--verbose']).main_command()
+        make_app(['--debug']).main_command()
 
 if __name__ == '__main__':
     unittest.main()
