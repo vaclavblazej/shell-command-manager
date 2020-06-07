@@ -1,5 +1,5 @@
 
-from shcmdmgr import filemanip
+from shcmdmgr import filemanip, cio
 
 class Command:
     # command can be either str, or a function (str[]) -> None
@@ -17,7 +17,7 @@ class Command:
     def from_json(cls, data):
         return cls(**data)
 
-    def find(self, query, form):
+    def find(self, query):
         to_check = [
             # {'name':'ali', 'field':self.alias},
             {'name':'cmd', 'field':self.command},
@@ -27,7 +27,7 @@ class Command:
         total_priority = 0
         total_formatted_output = ""
         for check in to_check:
-            (priority, formatted_output) = form.search_and_format(query, check['field'])
+            (priority, formatted_output) = cio.search_and_format(query, check['field'])
             total_priority += priority
             total_formatted_output += check['name'] + ': ' + formatted_output + '\n'
         if total_priority != 0:

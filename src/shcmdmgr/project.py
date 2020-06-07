@@ -27,7 +27,7 @@ class Project:
 
     def print_help(self):
         if exists(self.help_script):
-            process.run_script([self.help_script])
+            process.run_script([self.help_script], self.form)
         else:
             self.form.print_str('You are in project: ' + self.directory)
             self.form.print_str('This project has no explicit help')
@@ -45,8 +45,8 @@ class Project:
             currently_checked_folder = dirname(currently_checked_folder)
 
     @staticmethod
-    def retrieve_project_if_present(search_directory, formatter):
+    def retrieve_project_if_present(search_directory, form):
         project_directory = Project.find_location(search_directory)
         if project_directory:
-            return Project(project_directory, formatter)
+            return Project(project_directory, form)
         return None

@@ -2,4 +2,4 @@
 
 cd "$project_root"
 
-pylint --rcfile="$PWD/.cmd/lint.rc" ./src/shcmdmgr/**
+pylint --rcfile="$PWD/.cmd/lint.rc" ./src/shcmdmgr/**.py

@@ -6,7 +6,10 @@ from string import Template
 
 from shcmdmgr.command import Command
 
-def run_script(command_with_arguments, formatter):
+def run_command(command_with_arguments):
+    return subprocess.getoutput(command_with_arguments)
+
+def run_script(command_with_arguments, formatter=None):
     try:
         process = subprocess.Popen(command_with_arguments)
         try:

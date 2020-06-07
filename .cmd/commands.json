@@ -40,5 +40,11 @@
         "description": "install or upgrade the package from the test server",
         "alias": "upgrade",
         "creation_time": "2020-05-12 11:05:18"
+    },
+    {
+        "command": "cd \"$project_root/src/shcmdmgr\"; coverage run -m test; coverage report -m",
+        "description": "coevr",
+        "alias": "cover",
+        "creation_time": "2020-06-07 14:44:43"
     }
 ]

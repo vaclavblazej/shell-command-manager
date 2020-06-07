@@ -21,6 +21,7 @@
 import os
 import subprocess
 import sys
+import datetime
 from os.path import join, exists
 from string import Template
 
@@ -28,12 +29,10 @@ from shcmdmgr import config, filemanip, project, complete, cio, process
 from shcmdmgr.complete import Complete
 from shcmdmgr.command import Command, load_commands
 from shcmdmgr.project import Project
-from shcmdmgr.config import SCRIPT_PATH, GLOBAL_COMMANDS_FILE_LOCATION
 from shcmdmgr.args import Argument, CommandArgument, ArgumentGroup
 from shcmdmgr.parser import Parser
 
 WORKING_DIRECTORY = os.getcwd()
-PROJECT_ROOT_VAR = 'project_root'
 
 # == Main Logic ==================================================================
 
@@ -44,19 +43,17 @@ def main():
         conf = config.get_conf()
         logger = config.get_logger()
         form = cio.Formatter(logger)
-        pars = Parser(sys.argv) # todo changes after?
+        pars = Parser(sys.argv)
         proj = Project.retrieve_project_if_present(WORKING_DIRECTORY, form)
         app = App(conf, logger, form, pars, proj)
         pars.shift() # skip the program invocation
         pars.load_all([app.argument_groups['OUTPUT_ARGUMENTS']], app.print_help)
         logger.setLevel(conf['logging_level'])
         logger.debug('Configuration: %s', str(conf))
-        logger.debug('Script folder: %s', cio.quote(SCRIPT_PATH))
+        logger.debug('Script folder: %s', cio.quote(config.SCRIPT_PATH))
         logger.debug('Working directory: %s', cio.quote(WORKING_DIRECTORY))
         logger.debug('Arguments: %s', str(sys.argv))
-        if proj: os.environ[PROJECT_ROOT_VAR] = proj.directory # expose variable to subprocesses
-        # load_aliases() # todo
-        # load_project_aliases()
+        if proj: os.environ[config.PROJECT_ROOT_VAR] = proj.directory # expose variable to subprocesses
         pars.load_all([app.argument_groups['OPTIONAL_ARGUMENTS']], app.print_help)
         if conf['scope'] == 'auto':
             if proj: conf['scope'] = 'project'
@@ -80,8 +77,7 @@ class App:
     def main_command(self):
         current_command = self.parser.peek()
         if not current_command:
-            # if complete: return complete.complete_commands(aliases + project_aliases) # todo
-            if self.complete: return self.complete.nothing()
+            if self.complete: return self.complete.complete_commands(self.load_aliases_raw(), self.load_project_aliases_raw())
             if self.print_help: return self.print_general_help()
             if self.conf['default_command']:
                 new_args = self.conf['default_command'].split(' ')
@@ -128,7 +124,7 @@ class App:
 
     def cmd_version(self):
         if self.complete: return self.complete.nothing()
-        self.form.print_str('cmd version ' + self.conf.VERSION)
+        self.form.print_str('cmd version ' + config.VERSION)
         self.parser.expect_nothing()
         return config.SUCCESSFULL_EXECUTION
 
@@ -153,7 +149,7 @@ class App:
         if len(arguments) > 0 and exists(arguments[0]): # substitute relative file path for absolute
             if self.conf['scope'] == 'project':
                 path_from_project_root = os.path.relpath(join(WORKING_DIRECTORY, arguments[0]), self.project.directory)
-                arguments[0] = '${}/{}'.format(PROJECT_ROOT_VAR, path_from_project_root)
+                arguments[0] = '${}/{}'.format(config.PROJECT_ROOT_VAR, path_from_project_root)
             if self.conf['scope'] == 'global':
                 arguments[0] = os.path.realpath(join(WORKING_DIRECTORY, arguments[0]))
             show_edit = True
@@ -168,20 +164,21 @@ class App:
         if alias == '': alias = self.form.input_str('Alias: ')
         if description == '': description = self.form.input_str('Short description: ')
         commands_db = load_commands(commands_file_location)
-        commands_db.append(Command(self.logger, command_to_save, description, alias, self.conf))
+        creation_time = str(datetime.datetime.now().strftime(self.conf['time_format']))
+        commands_db.append(Command(command_to_save, description, alias, creation_time))
         filemanip.save_json_file(commands_db, commands_file_location)
         return config.SUCCESSFULL_EXECUTION
 
     def get_context_command_file_location(self) -> str:
         if self.conf['scope'] == 'project' and project: return self.project.commands_file
-        if self.conf['scope'] == 'global': return GLOBAL_COMMANDS_FILE_LOCATION
+        if self.conf['scope'] == 'global': return config.GLOBAL_COMMANDS_FILE_LOCATION
         return None
 
     def cmd_find(self):
         if self.complete: return self.complete.nothing()
         max_cmd_count = 4
         max_cmd_count_slack = 2
-        commands_db = load_commands(GLOBAL_COMMANDS_FILE_LOCATION)
+        commands_db = load_commands(config.GLOBAL_COMMANDS_FILE_LOCATION)
         if self.project: commands_db += self.project.commands
         selected_commands = []
         try:
@@ -205,7 +202,7 @@ class App:
                 index = 1
                 results = []
                 for cmd in commands_db:
-                    result = cmd.find(query, self.form)
+                    result = cmd.find(query)
                     if result is not None:
                         (priority, formatted_text) = result
                         results.append((priority, formatted_text, cmd))
@@ -245,7 +242,7 @@ class App:
         remove_first_argument()
         if self.complete: return main()
         self.complete = Complete(last_arg)
-        self.logger.setLevel(self.conf.QUIET_LEVEL) # fix when set after main() call
+        self.logger.setLevel(config.QUIET_LEVEL) # fix when set after main() call
         main_res = main()
         for word in self.complete.words:
             print(word, end=' ')
@@ -262,21 +259,21 @@ class App:
             raise Exception('unsuported shell {}, choose bash or zsh'.format(cio.quote(shell)))
         return config.SUCCESSFULL_EXECUTION
 
-    def load_aliases(self): # todo simplify
-        commands_db = load_commands(GLOBAL_COMMANDS_FILE_LOCATION)
-        # aliases = {}
-        # for cmd in commands_db:
-        #     if cmd.alias:
-        #         aliases[cmd.alias] = cmd(self.logger, lambda: process.execute(cmd), cmd.description)
+    def load_aliases_raw(self):
+        commands_db = load_commands(config.GLOBAL_COMMANDS_FILE_LOCATION)
+        return [cmd.alias for cmd in commands_db if cmd.alias]
+
+    def load_aliases(self):
+        commands_db = load_commands(config.GLOBAL_COMMANDS_FILE_LOCATION)
         return [CommandArgument(cmd, self.logger, self.parser) for cmd in commands_db if cmd.alias]
 
-    def load_project_aliases(self): # todo push into the parser
-        # global project_aliases
-        # project_aliases = {}
+    def load_project_aliases_raw(self):
         if self.project:
-            # for cmd in self.project.commands:
-            #     if cmd.alias:
-            #         project_aliases[cmd.alias] = Command(self.logger, lambda: process.execute(cmd), cmd.description)
+            return [cmd.alias for cmd in self.project.commands if cmd.alias]
+        return None
+
+    def load_project_aliases(self):
+        if self.project:
             return [CommandArgument(cmd, self.logger, self.parser) for cmd in self.project.commands if cmd.alias]
         return None
 

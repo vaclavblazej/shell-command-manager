@@ -1,24 +1,72 @@
 import unittest
+import os.path
+import sys
 
-from shcmdmgr import complete
+import shcmdmgr
+from shcmdmgr import complete, filemanip, config, args, cio, command, project, process, util, parser, __main__
+from shcmdmgr.complete import Complete
 
-class TestMainInvocation(unittest.TestCase):
-    def test_shell_invocation(self):
-        com = complete.get_complete('last-arg')
+class TestCompletion(unittest.TestCase):
+    def test_complete_initialization(self):
+        com = Complete('last-arg')
         self.assertTrue(com)
+        com.complete_commands(['last-arg-test', 'arg'])
+
+    def test_complete(self):
+        com = Complete('last-arg')
+        self.assertTrue(com)
+        com.nothing()
+
+    def test_completion_location(self):
+        complete.completion_setup_script_path('bash')
+
+class TestFilemanip(unittest.TestCase):
+    def test_load(self):
+        filemanip.load_json_file(os.path.join('test', 'cmds.json'))
+        filemanip.load_json_file(os.path.join('test', 'nonexistant.json'))
+
+    def test_save(self):
+        res = filemanip.load_json_file(os.path.join('test', 'cmds.json'))
+        filemanip.save_json_file(res, os.path.join('test', 'tmp.json'))
+
+class TestConfig(unittest.TestCase):
+    def test_configuration(self):
+        config.get_conf()
+
+    def test_logger(self):
+        log = config.get_logger()
+
+    def test_logger_levels(self):
+        log = config.get_logger()
+        log.setLevel(config.DEBUG_LEVEL)
+        log.debug('test')
+        log.verbose('test')
+        log.info('test')
+        log.critical('test')
+        log.error('test')
+
+class TestUtil(unittest.TestCase):
+    def test_terminal(self):
+        (h, w) = util.get_terminal_dimensions()
+
+def make_app(arguments):
+    sys.argv = ['program'] + arguments
+    conf = config.get_conf()
+    logger = config.get_logger()
+    form = cio.Formatter(logger)
+    pars = parser.Parser(arguments)
+    return __main__.App(conf, logger, form, pars, None)
+
+class TestMainGeneral(unittest.TestCase):
+    def test_main_no_param(self):
+        make_app([]).main_command()
+
+    def test_main_no_param(self):
+        make_app(['--version']).main_command()
+
+    def test_main_completion(self):
+        make_app(['--complete', '']).main_command()
+        make_app(['--complete', '--version', '']).main_command()
 
 if __name__ == '__main__':
     unittest.main()
-
-# Example:
-# class TestStringMethods(unittest.TestCase):
-    # # def setUp(self):
-        # # self.widget = Widget('The widget')
-
-    # # def tearDown(self):
-        # # self.widget.dispose()
-
-    # # @unittest.skipIf(mylib.__version__ < (1, 3), "not supported in this library version")
-    # # @unittest.skipUnless(sys.platform.startswith("win"), "requires Windows")
-    # def test_upper(self):
-        # self.assertEqual('foo'.upper(), 'FOO')

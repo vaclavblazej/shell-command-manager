@@ -7,9 +7,10 @@ def save_json_file(json_content_object, file_location):
         json_file.write(file_string + '\n')
 
 def load_json_file(file_location):
+    data = dict()
     try:
         with open(file_location) as json_file:
             data = json.load(json_file)
     except FileNotFoundError:
-        return dict()
+        pass
     return data

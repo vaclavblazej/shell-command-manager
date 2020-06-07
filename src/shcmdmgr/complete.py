@@ -23,13 +23,15 @@ class Complete:
     def words(self, words):
         self.__words = words
 
-    def nothing(self):
+    @staticmethod
+    def nothing():
         return config.SUCCESSFULL_EXECUTION
 
-    def complete_commands(self, words):
+    def complete_commands(self, *words_list):
         cmd_commands = ['--save', '--find', '--version', '--help', '-s', '-f', '-h']
         flags = ['-q', '-v', '-d']
-        self.words += words
+        for words in words_list:
+            self.words += words
         self.words += cmd_commands
         self.words += flags
         return config.SUCCESSFULL_EXECUTION

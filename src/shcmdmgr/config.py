@@ -13,12 +13,15 @@ DATA_PATH = join(SCRIPT_PATH, 'data')
 GLOBAL_CONFIG_FILE = join(DATA_PATH, '_config.json')
 LOCAL_CONFIG_FILE = join(DATA_PATH, 'config_local.json')
 GLOBAL_COMMANDS_FILE_LOCATION = join(DATA_PATH, 'commands.json')
+PROJECT_ROOT_VAR = 'project_root'
 
+DEBUG_LEVEL = logging.DEBUG # 10
 VERBOSE_LEVEL = 15
+INFO_LEVEL = logging.INFO # 20
 TEXT_LEVEL = 30
+CRITICAL_LEVEL = logging.CRITICAL # 50
 QUIET_LEVEL = 60
-INFO_LEVEL = logging.INFO
-DEBUG_LEVEL = logging.DEBUG
+
 VERSION = '0.1.2-dev0'
 
 def get_logger():

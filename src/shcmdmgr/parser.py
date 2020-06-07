@@ -12,7 +12,7 @@ class Parser:
             return self.arguments[0]
         return None
 
-    def get_rest(self, print_help):
+    def get_rest(self, print_help=False):
         if print_help:
             sys.exit(config.SUCCESSFULL_EXECUTION)
         res = self.arguments

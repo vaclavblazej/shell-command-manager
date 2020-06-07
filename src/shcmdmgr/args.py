@@ -31,7 +31,7 @@ class Argument:
 
 class CommandArgument(Argument):
     def __init__(self, command: Command, logger, parser):
-        fun = lambda: (process.execute(logger, command, parser.get_rest(False)))
+        fun = lambda: (process.execute(logger, command, parser.get_rest()))
         super().__init__(command.alias, None, fun, command.description)
 
 class ArgumentGroup:
