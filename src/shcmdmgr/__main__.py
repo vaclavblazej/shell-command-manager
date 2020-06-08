@@ -25,7 +25,7 @@ import datetime
 from os.path import join, exists
 from string import Template
 
-from shcmdmgr import config, filemanip, project, complete, cio, process
+from shcmdmgr import config, filemanip, project, complete, cio, process, parser
 from shcmdmgr.complete import Complete
 from shcmdmgr.command import Command, load_commands
 from shcmdmgr.project import Project
@@ -123,7 +123,7 @@ class App:
     def cmd_help(self):
         if self.complete: return self.main_command()
         self.help.print = True
-        remove_first_argument()
+        parser.remove_first_argument()
         return self.main_command()
 
     def cmd_version(self):
@@ -252,7 +252,7 @@ class App:
     def cmd_complete(self):
         last_arg = sys.argv[-1]
         sys.argv = sys.argv[:-1]
-        remove_first_argument()
+        parser.remove_first_argument()
         if self.complete: return main()
         self.complete = Complete(last_arg)
         self.logger.setLevel(config.QUIET_LEVEL) # fix when set after main() call
@@ -321,9 +321,6 @@ class App:
         res['OUTPUT_ARGUMENTS'] = ArgumentGroup('', [args['QUIET'], args['VERBOSE'], args['DEBUG']])
         res['OPTIONAL_ARGUMENTS'] = ArgumentGroup('optional arguments', [args['QUIET'], args['VERBOSE'], args['DEBUG'], args['project_SCOPE'], args['GLOBAL_SCOPE']])
         return res
-
-def remove_first_argument():
-    sys.argv = [sys.argv[0]] + sys.argv[2:]
 
 def set_function(what, property_name, value):
     what[property_name] = value

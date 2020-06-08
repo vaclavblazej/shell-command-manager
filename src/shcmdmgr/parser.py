@@ -3,6 +3,9 @@ import sys
 from shcmdmgr import config, cio
 from shcmdmgr.args import ArgumentGroup
 
+def remove_first_argument():
+    sys.argv = [sys.argv[0]] + sys.argv[2:]
+
 class Parser:
     def __init__(self, arguments, helpme):
         self.arguments = arguments
