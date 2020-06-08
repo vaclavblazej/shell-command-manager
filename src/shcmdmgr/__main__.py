@@ -77,6 +77,7 @@ class App:
         self.default_command_load_deja_vu = False
         self.project = proj
         self.help = helpme
+        self.argument_groups_cache = None
 
     def main_command(self):
         current_command = self.parser.peek()
@@ -135,10 +136,12 @@ class App:
     def cmd_initialize(self):
         if self.complete: return self.complete.nothing()
         self.parser.expect_nothing()
-        new_file = config.PROJECT_COMMANDS_FILE_LOCATION
+        new_file = join(WORKING_DIRECTORY, config.PROJECT_COMMANDS_FILE_LOCATION)
         if not exists(new_file):
             os.mkdir(os.path.dirname(new_file))
-            filemanip.save_json_file([], new_file)
+            # filemanip.save_json_file([], new_file)
+        else:
+            self.logger.error('The project is already initialized in direcotry {}'.format(WORKING_DIRECTORY))
         return config.SUCCESSFULL_EXECUTION
 
     def cmd_save(self):
@@ -312,15 +315,21 @@ class App:
 
     @property
     def argument_groups(self):
+        if self.argument_groups_cache: return self.argument_groups_cache
         res = {}
-        res['PROJECT_COMMANDS'] = ArgumentGroup('project commands', None, self.load_project_aliases)
-        res['CUSTOM_COMMANDS'] = ArgumentGroup('custom commands', None, self.load_aliases, 'You may add new custom commands via "cmd --save if the command is given alias, it will show up here')
+        project_aliases = self.load_project_aliases()
+        project_help_string = None
+        if (project_aliases != None) and (len(project_aliases) == 0):
+            project_help_string = 'You may add new project commands via running "cmd --save" inside any project subdirectory. If the command is given alias, it will shop up here.'
+        res['PROJECT_COMMANDS'] = ArgumentGroup('project commands', None, self.load_project_aliases, project_help_string)
+        res['CUSTOM_COMMANDS'] = ArgumentGroup('custom commands', None, self.load_aliases, 'You may add new custom commands via "cmd --save if the command is given alias, it will show up here.')
         args = self.argument_args
         res['CMD_COMMANDS'] = ArgumentGroup('management commands', [args['SAVE'], args['FIND'], args['EDIT'], args['INIT'], args['VERSION'], args['HELP'], args['COMPLETE'], args['COMPLETION']])
         res['CMD_SHOWN_COMMANDS'] = ArgumentGroup('management commands', [args['SAVE'], args['FIND'], args['EDIT'], args['INIT'], args['VERSION'], args['HELP']])
         res['OUTPUT_ARGUMENTS'] = ArgumentGroup('', [args['QUIET'], args['VERBOSE'], args['DEBUG']])
         res['OPTIONAL_ARGUMENTS'] = ArgumentGroup('optional arguments', [args['QUIET'], args['VERBOSE'], args['DEBUG'], args['project_SCOPE'], args['GLOBAL_SCOPE']])
-        return res
+        self.argument_groups_cache = res
+        return self.argument_groups_cache
 
 def set_function(what, property_name, value):
     what[property_name] = value
