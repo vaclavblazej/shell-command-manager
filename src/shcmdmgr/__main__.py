@@ -288,7 +288,7 @@ class App:
         res = {}
         res['SAVE'] = Argument('--save', '-s', self.cmd_save, 'Saves command which is passed as further arguments')
         res['FIND'] = Argument('--find', '-f', self.cmd_find, 'Opens an interactive search for saved commands')
-        res['EDIT'] = Argument('--edit', '-e', self.cmd_edit, 'Edit the command databse in text editor')
+        res['EDIT'] = Argument('--edit', '-e', self.cmd_edit, 'Edit the command database in text editor')
         res['VERSION'] = Argument('--version', '-V', self.cmd_version, 'Prints out version information')
         res['HELP'] = Argument('--help', '-h', self.cmd_help, 'Request detailed information about flags or commands')
         res['COMPLETE'] = Argument('--complete', None, self.cmd_complete, 'Returns list of words which are supplied to the completion shell command')
