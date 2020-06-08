@@ -4,16 +4,17 @@ from shcmdmgr import config, cio
 from shcmdmgr.args import ArgumentGroup
 
 class Parser:
-    def __init__(self, arguments):
+    def __init__(self, arguments, helpme):
         self.arguments = arguments
+        self.help = helpme
 
     def peek(self):
         if len(self.arguments) != 0:
             return self.arguments[0]
         return None
 
-    def get_rest(self, print_help=False):
-        if print_help:
+    def get_rest(self):
+        if self.help.print:
             sys.exit(config.SUCCESSFULL_EXECUTION)
         res = self.arguments
         self.arguments = []
@@ -29,7 +30,13 @@ class Parser:
         if cur:
             raise Exception('unexpected parameter ' + cio.quote(cur))
 
-    def may_have(self, groups: [ArgumentGroup], print_help):
+    # def expect(self, name, description):
+    #     cur = self.peek()
+    #     if not cur:
+    #         if self.help.print:
+    #             pass # todo
+
+    def may_have(self, groups: [ArgumentGroup]):
         current = self.peek()
         if current:
             for args in [group.arguments for group in groups if group.arguments]:
@@ -38,10 +45,10 @@ class Parser:
                         self.shift()
                         arg.function()
                         return True
-        elif print_help:
+        elif self.help.print:
             # print_str(ArgumentGroup.to_str(groups), end='') #fixme
             sys.exit(config.SUCCESSFULL_EXECUTION)
         return False
 
-    def load_all(self, groups: [ArgumentGroup], print_help):
-        while self.may_have(groups, print_help): pass
+    def load_all(self, groups: [ArgumentGroup]):
+        while self.may_have(groups): pass

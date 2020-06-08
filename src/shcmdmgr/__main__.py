@@ -40,31 +40,35 @@ def main():
     logger = None
     form = None
     try:
-        conf = config.get_conf()
         logger = config.get_logger()
         form = cio.Formatter(logger)
-        pars = Parser(sys.argv)
+        helpme = config.Help()
+        pars = Parser(sys.argv, helpme)
+        conf = config.get_conf()
         proj = Project.retrieve_project_if_present(WORKING_DIRECTORY, form)
-        app = App(conf, logger, form, pars, proj)
+        app = App(conf, logger, form, pars, proj, helpme)
         pars.shift() # skip the program invocation
-        pars.load_all([app.argument_groups['OUTPUT_ARGUMENTS']], app.print_help)
+        pars.load_all([app.argument_groups['OUTPUT_ARGUMENTS']])
         logger.setLevel(conf['logging_level'])
         logger.debug('Configuration: %s', str(conf))
         logger.debug('Script folder: %s', cio.quote(config.SCRIPT_PATH))
         logger.debug('Working directory: %s', cio.quote(WORKING_DIRECTORY))
         logger.debug('Arguments: %s', str(sys.argv))
         if proj: os.environ[config.PROJECT_ROOT_VAR] = proj.directory # expose variable to subprocesses
-        pars.load_all([app.argument_groups['OPTIONAL_ARGUMENTS']], app.print_help)
-        if conf['scope'] == 'auto':
-            if proj: conf['scope'] = 'project'
-            else: conf['scope'] = 'global'
+        pars.load_all([app.argument_groups['OPTIONAL_ARGUMENTS']])
+        if conf['scope'] == config.AUTOMATIC_SCOPE:
+            if proj: conf['scope'] = config.PROJECT_SCOPE
+            else: conf['scope'] = config.GLOBAL_SCOPE
+        if conf['scope'] == config.PROJECT_SCOPE and not proj:
+            logger.critical('Scope is set to "project", however no project is present. To create project in the current folder run the "--init" command.')
+            return config.USER_ERROR
         return app.main_command()
     except KeyboardInterrupt:
         if form: form.print_str()
         if logger: logger.critical('Manually interrupted!')
 
 class App:
-    def __init__(self, conf, logger, form, pars, proj):
+    def __init__(self, conf, logger, form, pars, proj, helpme):
         self.conf = conf
         self.logger = logger
         self.form = form
@@ -72,13 +76,13 @@ class App:
         self.complete = None
         self.default_command_load_deja_vu = False
         self.project = proj
-        self.print_help = False
+        self.help = helpme
 
     def main_command(self):
         current_command = self.parser.peek()
         if not current_command:
             if self.complete: return self.complete.complete_commands(self.load_aliases_raw(), self.load_project_aliases_raw())
-            if self.print_help: return self.print_general_help()
+            if self.help.print: return self.print_general_help()
             if self.conf['default_command']:
                 new_args = self.conf['default_command'].split(' ')
                 if len(new_args) != 0: # prevent doing nothing due to empty default command
@@ -90,7 +94,7 @@ class App:
                     return main()
             self.logger.warning('No command given')
             return config.USER_ERROR
-        if not self.parser.may_have([self.argument_groups['PROJECT_COMMANDS'], self.argument_groups['CUSTOM_COMMANDS'], self.argument_groups['CMD_COMMANDS']], self.print_help):
+        if not self.parser.may_have([self.argument_groups['PROJECT_COMMANDS'], self.argument_groups['CUSTOM_COMMANDS'], self.argument_groups['CMD_COMMANDS']]):
             self.logger.warning('The argument/command %s was not found', cio.quote(current_command))
             self.logger.info('run "cmd --help" if you are having trouble')
             return config.USER_ERROR
@@ -118,7 +122,7 @@ class App:
 
     def cmd_help(self):
         if self.complete: return self.main_command()
-        self.print_help = True
+        self.help.print = True
         remove_first_argument()
         return self.main_command()
 
@@ -136,8 +140,8 @@ class App:
             Argument('--descr', '-d', lambda: print('TODO'), 'few words about the command\'s functionality'),
             Argument('--', None, lambda: print('TODO'), 'command to be saved follows'),
         ]
-        self.parser.load_all([ArgumentGroup('save arguments (missing will be queried)', other_args)], self.print_help)
-        arguments = self.parser.get_rest(self.print_help)
+        self.parser.load_all([ArgumentGroup('save arguments (missing will be queried)', other_args)], self.help.print)
+        arguments = self.parser.get_rest()
         if self.complete: return self.complete.nothing()
         show_edit = False
         if len(arguments) == 0: # supply the last command from history
@@ -147,10 +151,10 @@ class App:
             arguments = history_command.split(' ')
             show_edit = True
         if len(arguments) > 0 and exists(arguments[0]): # substitute relative file path for absolute
-            if self.conf['scope'] == 'project':
+            if self.conf['scope'] == config.PROJECT_SCOPE:
                 path_from_project_root = os.path.relpath(join(WORKING_DIRECTORY, arguments[0]), self.project.directory)
                 arguments[0] = '${}/{}'.format(config.PROJECT_ROOT_VAR, path_from_project_root)
-            if self.conf['scope'] == 'global':
+            if self.conf['scope'] == config.GLOBAL_SCOPE:
                 arguments[0] = os.path.realpath(join(WORKING_DIRECTORY, arguments[0]))
             show_edit = True
         command_to_save = ' '.join(arguments)
@@ -170,8 +174,8 @@ class App:
         return config.SUCCESSFULL_EXECUTION
 
     def get_context_command_file_location(self) -> str:
-        if self.conf['scope'] == 'project' and project: return self.project.commands_file
-        if self.conf['scope'] == 'global': return config.GLOBAL_COMMANDS_FILE_LOCATION
+        if self.conf['scope'] == config.PROJECT_SCOPE and project: return self.project.commands_file
+        if self.conf['scope'] == config.GLOBAL_SCOPE: return config.GLOBAL_COMMANDS_FILE_LOCATION
         return None
 
     def cmd_find(self):
@@ -184,7 +188,7 @@ class App:
         try:
             while True:
                 self.form.print_str(40 * '=')
-                arguments = self.parser.get_rest(self.print_help)
+                arguments = self.parser.get_rest()
                 if len(arguments) != 0:
                     query = ' '.join(arguments)
                     arguments = []
@@ -195,7 +199,7 @@ class App:
                     if idx not in range(1, len(selected_commands)+1):
                         self.form.print_str('invalid index')
                         continue
-                    process.execute(selected_commands[idx-1], self.parser.get_rest(self.print_help))
+                    process.execute(selected_commands[idx-1], self.parser.get_rest())
                     break
                 except ValueError as _:
                     pass

@@ -47,7 +47,7 @@ class TestConfig(unittest.TestCase):
 
 class TestUtil(unittest.TestCase):
     def test_terminal(self):
-        (h, w) = util.get_terminal_dimensions()
+        util.get_terminal_dimensions()
 
 def make_app(arguments):
     sys.argv = ['program'] + arguments

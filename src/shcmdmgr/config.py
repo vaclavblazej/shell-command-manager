@@ -15,6 +15,10 @@ LOCAL_CONFIG_FILE = join(DATA_PATH, 'config_local.json')
 GLOBAL_COMMANDS_FILE_LOCATION = join(DATA_PATH, 'commands.json')
 PROJECT_ROOT_VAR = 'project_root'
 
+PROJECT_SCOPE = 'project'
+GLOBAL_SCOPE = 'global'
+AUTOMATIC_SCOPE = 'auto'
+
 DEBUG_LEVEL = logging.DEBUG # 10
 VERBOSE_LEVEL = 15
 INFO_LEVEL = logging.INFO # 20
@@ -42,3 +46,7 @@ def get_conf():
     conf.update(filemanip.load_json_file(GLOBAL_CONFIG_FILE))
     conf.update(filemanip.load_json_file(LOCAL_CONFIG_FILE))
     return conf
+
+class Help:
+    def __init__(self):
+        self.print = False
