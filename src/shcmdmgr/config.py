@@ -14,6 +14,7 @@ GLOBAL_CONFIG_FILE = join(DATA_PATH, '_config.json')
 LOCAL_CONFIG_FILE = join(DATA_PATH, 'config_local.json')
 GLOBAL_COMMANDS_FILE_LOCATION = join(DATA_PATH, 'commands.json')
 PROJECT_ROOT_VAR = 'project_root'
+PROJECT_COMMANDS_FILE_LOCATION = join('.cmd', 'commands.json')
 
 PROJECT_SCOPE = 'project'
 GLOBAL_SCOPE = 'global'

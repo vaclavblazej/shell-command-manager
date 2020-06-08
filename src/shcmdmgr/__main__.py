@@ -128,8 +128,17 @@ class App:
 
     def cmd_version(self):
         if self.complete: return self.complete.nothing()
-        self.form.print_str('cmd version ' + config.VERSION)
         self.parser.expect_nothing()
+        self.form.print_str('cmd version ' + config.VERSION)
+        return config.SUCCESSFULL_EXECUTION
+
+    def cmd_initialize(self):
+        if self.complete: return self.complete.nothing()
+        self.parser.expect_nothing()
+        new_file = config.PROJECT_COMMANDS_FILE_LOCATION
+        if not exists(new_file):
+            os.mkdir(os.path.dirname(new_file))
+            filemanip.save_json_file([], new_file)
         return config.SUCCESSFULL_EXECUTION
 
     def cmd_save(self):
@@ -289,6 +298,7 @@ class App:
         res['SAVE'] = Argument('--save', '-s', self.cmd_save, 'Saves command which is passed as further arguments')
         res['FIND'] = Argument('--find', '-f', self.cmd_find, 'Opens an interactive search for saved commands')
         res['EDIT'] = Argument('--edit', '-e', self.cmd_edit, 'Edit the command database in text editor')
+        res['INIT'] = Argument('--init', '-i', self.cmd_initialize, 'Initialize a project')
         res['VERSION'] = Argument('--version', '-V', self.cmd_version, 'Prints out version information')
         res['HELP'] = Argument('--help', '-h', self.cmd_help, 'Request detailed information about flags or commands')
         res['COMPLETE'] = Argument('--complete', None, self.cmd_complete, 'Returns list of words which are supplied to the completion shell command')
@@ -306,7 +316,7 @@ class App:
         res['PROJECT_COMMANDS'] = ArgumentGroup('project commands', None, self.load_project_aliases)
         res['CUSTOM_COMMANDS'] = ArgumentGroup('custom commands', None, self.load_aliases, 'You may add new custom commands via "cmd --save if the command is given alias, it will show up here')
         args = self.argument_args
-        res['CMD_COMMANDS'] = ArgumentGroup('management commands', [args['SAVE'], args['FIND'], args['EDIT'], args['VERSION'], args['HELP'], args['COMPLETE'], args['COMPLETION']])
+        res['CMD_COMMANDS'] = ArgumentGroup('management commands', [args['SAVE'], args['FIND'], args['EDIT'], args['VERSION'], args['HELP'], args['INIT'], args['COMPLETE'], args['COMPLETION']])
         res['CMD_SHOWN_COMMANDS'] = ArgumentGroup('management commands', [args['SAVE'], args['FIND'], args['EDIT'], args['VERSION'], args['HELP']])
         res['OUTPUT_ARGUMENTS'] = ArgumentGroup('', [args['QUIET'], args['VERBOSE'], args['DEBUG']])
         res['OPTIONAL_ARGUMENTS'] = ArgumentGroup('optional arguments', [args['QUIET'], args['VERBOSE'], args['DEBUG'], args['project_SCOPE'], args['GLOBAL_SCOPE']])
