@@ -316,8 +316,8 @@ class App:
         res['PROJECT_COMMANDS'] = ArgumentGroup('project commands', None, self.load_project_aliases)
         res['CUSTOM_COMMANDS'] = ArgumentGroup('custom commands', None, self.load_aliases, 'You may add new custom commands via "cmd --save if the command is given alias, it will show up here')
         args = self.argument_args
-        res['CMD_COMMANDS'] = ArgumentGroup('management commands', [args['SAVE'], args['FIND'], args['EDIT'], args['VERSION'], args['HELP'], args['INIT'], args['COMPLETE'], args['COMPLETION']])
-        res['CMD_SHOWN_COMMANDS'] = ArgumentGroup('management commands', [args['SAVE'], args['FIND'], args['EDIT'], args['VERSION'], args['HELP']])
+        res['CMD_COMMANDS'] = ArgumentGroup('management commands', [args['SAVE'], args['FIND'], args['EDIT'], args['INIT'], args['VERSION'], args['HELP'], args['COMPLETE'], args['COMPLETION']])
+        res['CMD_SHOWN_COMMANDS'] = ArgumentGroup('management commands', [args['SAVE'], args['FIND'], args['EDIT'], args['INIT'], args['VERSION'], args['HELP']])
         res['OUTPUT_ARGUMENTS'] = ArgumentGroup('', [args['QUIET'], args['VERBOSE'], args['DEBUG']])
         res['OPTIONAL_ARGUMENTS'] = ArgumentGroup('optional arguments', [args['QUIET'], args['VERBOSE'], args['DEBUG'], args['project_SCOPE'], args['GLOBAL_SCOPE']])
         return res
