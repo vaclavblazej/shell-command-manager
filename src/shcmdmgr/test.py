@@ -54,8 +54,9 @@ def make_app(arguments):
     conf = config.get_conf()
     logger = config.get_logger()
     form = cio.Formatter(logger)
-    pars = parser.Parser(arguments)
-    return __main__.App(conf, logger, form, pars, None)
+    helpme = config.Help()
+    pars = parser.Parser(arguments, helpme)
+    return __main__.App(conf, logger, form, pars, None, helpme)
 
 class TestMainGeneral(unittest.TestCase):
     def test_main_no_param(self):
