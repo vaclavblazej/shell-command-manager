@@ -3,16 +3,16 @@ import sys
 from shcmdmgr import config, cio
 from shcmdmgr.args import ArgumentGroup
 
-def remove_first_argument():
-    sys.argv = [sys.argv[0]] + sys.argv[2:]
-
 class Parser:
-    def __init__(self, arguments, helpme, form):
+    """Provides a common interface to interact with commandline arguments."""
+    def __init__(self, arguments, helpme, form, complete):
         self.arguments = arguments
         self.help = helpme
         self.form = form
+        self.complete = complete
 
     def peek(self):
+        """Returns the first argument, """
         if len(self.arguments) != 0:
             return self.arguments[0]
         return None
@@ -32,7 +32,8 @@ class Parser:
     def expect_nothing(self):
         cur = self.peek()
         if cur:
-            raise Exception('unexpected parameter ' + cio.quote(cur))
+            self.form.print_str('parameter {} is given where no parameter was expected'.format(cio.quote(cur)))
+            sys.exit(config.USER_ERROR)
 
     # def expect(self, name, description):
     #     cur = self.peek()
@@ -56,3 +57,7 @@ class Parser:
 
     def load_all(self, groups: [ArgumentGroup]):
         while self.may_have(groups): pass
+
+    @staticmethod
+    def remove_first_argument():
+        sys.argv = [sys.argv[0]] + sys.argv[2:]

@@ -27,7 +27,7 @@ class Complete:
     def nothing():
         return config.SUCCESSFULL_EXECUTION
 
-    def complete_commands(self, *words_list):
+    def commands(self, *words_list):
         cmd_commands = ['--save', '--find', '--version', '--help', '-s', '-f', '-h']
         flags = ['-q', '-v', '-d']
         for words in words_list:

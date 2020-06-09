@@ -24,8 +24,7 @@ def run_script(command_with_arguments, formatter=None):
         formatter.print_str()
 
 def execute(logger, cmd: Command, args=None):
-    if not args:
-        args = []
+    if not args: args = []
     if isinstance(cmd.command, str):
         logger.verbose('running command: ' + cmd.command)
         cmd_subs = Template(cmd.command).substitute(os.environ)

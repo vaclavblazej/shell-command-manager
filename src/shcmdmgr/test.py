@@ -9,7 +9,7 @@ class TestCompletion(unittest.TestCase):
     def test_complete_initialization(self):
         com = Complete('last-arg')
         self.assertTrue(com)
-        com.complete_commands(['last-arg-test', 'arg'])
+        com.commands(['last-arg-test', 'arg'])
 
     def test_complete(self):
         com = Complete('last-arg')

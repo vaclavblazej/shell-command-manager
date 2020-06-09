@@ -22,6 +22,7 @@ import os
 import subprocess
 import sys
 import datetime
+import shlex
 from os.path import join, exists
 from string import Template
 
@@ -36,14 +37,14 @@ WORKING_DIRECTORY = os.getcwd()
 
 # == Main Logic ==================================================================
 
-def main():
+def main(complete = None):
     logger = None
     form = None
     try:
         logger = config.get_logger()
         form = cio.Formatter(logger)
         helpme = config.get_help()
-        pars = Parser(sys.argv, helpme, form)
+        pars = Parser(sys.argv, helpme, form, complete)
         conf = config.get_conf()
         proj = Project.retrieve_project_if_present(WORKING_DIRECTORY, form)
         app = App(conf, logger, form, pars, proj, helpme)
@@ -82,11 +83,11 @@ class App:
     def main_command(self):
         current_command = self.parser.peek()
         if not current_command:
-            if self.complete: return self.complete.complete_commands(self.load_aliases_raw(), self.load_project_aliases_raw())
+            if self.complete: return self.complete.commands(self.load_aliases_raw(), self.load_project_aliases_raw())
             if self.help.print: return self.print_general_help()
 
             if self.conf['default_command']:
-                new_args = self.conf['default_command'].split(' ')
+                new_args = shlex.split(self.conf['default_command'])
                 if len(new_args) != 0: # prevent doing nothing due to empty default command
                     if self.default_command_load_deja_vu: # prevent adding default command multiple times
                         self.logger.warning('The default command is invalid, it must include a command argument')
@@ -100,11 +101,18 @@ class App:
         return self.execute_command(current_command)
 
     def execute_command(self, current_command):
-        if not self.parser.may_have([self.argument_groups['PROJECT_COMMANDS'], self.argument_groups['CUSTOM_COMMANDS'], self.argument_groups['CMD_COMMANDS']]):
+        if not self.parser.may_have(self.all_commands()):
             self.logger.warning('The argument/command %s was not found', cio.quote(current_command))
             self.logger.info('run "cmd --help" if you are having trouble')
             return config.USER_ERROR
         return config.SUCCESSFULL_EXECUTION
+
+    def all_commands(self):
+        return [
+            self.argument_groups['PROJECT_COMMANDS'],
+            self.argument_groups['CUSTOM_COMMANDS'],
+            self.argument_groups['CMD_COMMANDS']
+        ]
 
     # == Formatting ==================================================================
     def print_general_help(self):
@@ -134,17 +142,15 @@ class App:
             self.form.print_str('--help command prints infor')
             return config.SUCCESSFULL_EXECUTION
         self.help.print = True
-        parser.remove_first_argument()
+        self.parser.remove_first_argument()
         return self.main_command()
 
     def cmd_version(self):
-        if self.complete: return self.complete.nothing()
         self.parser.expect_nothing()
         self.form.print_str('cmd version ' + config.VERSION)
         return config.SUCCESSFULL_EXECUTION
 
     def cmd_initialize(self):
-        if self.complete: return self.complete.nothing()
         self.parser.expect_nothing()
         new_file = join(WORKING_DIRECTORY, config.PROJECT_COMMANDS_FILE_LOCATION)
         if not exists(new_file):
@@ -163,8 +169,7 @@ class App:
             Argument('--', None, lambda: print('TODO'), 'command to be saved follows'),
         ]
         self.parser.load_all([ArgumentGroup('save arguments (missing will be queried)', other_args)], self.help.print)
-        arguments = self.parser.get_rest()
-        if self.complete: return self.complete.nothing()
+        arguments = self.parser.get_rest('command to be saved')
         show_edit = False
         if len(arguments) == 0: # supply the last command from history
             history_file_location = join(os.environ['HOME'], self.conf['history_home'])
@@ -201,7 +206,6 @@ class App:
         return None
 
     def cmd_find(self):
-        if self.complete: return self.complete.nothing()
         max_cmd_count = 4
         max_cmd_count_slack = 2
         commands_db = load_commands(config.GLOBAL_COMMANDS_FILE_LOCATION)
@@ -210,7 +214,7 @@ class App:
         try:
             while True:
                 self.form.print_str(40 * '=')
-                arguments = self.parser.get_rest()
+                arguments = self.parser.get_rest('search query')
                 if len(arguments) != 0:
                     query = ' '.join(arguments)
                     arguments = []
@@ -221,7 +225,7 @@ class App:
                     if idx not in range(1, len(selected_commands)+1):
                         self.form.print_str('invalid index')
                         continue
-                    process.execute(selected_commands[idx-1], self.parser.get_rest())
+                    process.execute(self.logger, selected_commands[idx-1])
                     break
                 except ValueError as _:
                     pass
@@ -253,7 +257,7 @@ class App:
         return config.SUCCESSFULL_EXECUTION
 
     def cmd_edit(self):
-        if self.complete: return self.complete.nothing()
+        self.parser.expect_nothing()
         editor = 'vim'
         try:
             editor = Template('$EDITOR').substitute(os.environ)
@@ -263,19 +267,21 @@ class App:
         return config.SUCCESSFULL_EXECUTION
 
     def cmd_complete(self):
+        """Return completion words. Is common interface to be used from shell completion scripts."""
         last_arg = sys.argv[-1]
         sys.argv = sys.argv[:-1]
-        parser.remove_first_argument()
-        if self.complete: return main()
+        self.parser.remove_first_argument()
+        if self.complete: return main() # todo
         self.complete = Complete(last_arg)
         self.logger.setLevel(config.QUIET_LEVEL) # fix when set after main() call
-        main_res = main()
+        main_res = main(complete)
         for word in self.complete.words:
             print(word, end=' ')
         print()
         return main_res
 
     def cmd_completion(self):
+        """Print out command which is to be added to user's shell rc file to enable completion."""
         shell = self.parser.shift()
         self.parser.expect_nothing()
         completion_init_script_path = complete.completion_setup_script_path(shell)
