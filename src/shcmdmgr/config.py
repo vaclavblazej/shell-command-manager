@@ -51,3 +51,6 @@ def get_conf():
 class Help:
     def __init__(self):
         self.print = False
+
+def get_help():
+    return Help()

@@ -7,9 +7,10 @@ def remove_first_argument():
     sys.argv = [sys.argv[0]] + sys.argv[2:]
 
 class Parser:
-    def __init__(self, arguments, helpme):
+    def __init__(self, arguments, helpme, form):
         self.arguments = arguments
         self.help = helpme
+        self.form = form
 
     def peek(self):
         if len(self.arguments) != 0:
@@ -49,7 +50,7 @@ class Parser:
                         arg.function()
                         return True
         elif self.help.print:
-            # print_str(ArgumentGroup.to_str(groups), end='') #fixme
+            self.form.print_str(ArgumentGroup.to_str(groups), end='')
             sys.exit(config.SUCCESSFULL_EXECUTION)
         return False
 

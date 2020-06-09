@@ -42,8 +42,8 @@ def main():
     try:
         logger = config.get_logger()
         form = cio.Formatter(logger)
-        helpme = config.Help()
-        pars = Parser(sys.argv, helpme)
+        helpme = config.get_help()
+        pars = Parser(sys.argv, helpme, form)
         conf = config.get_conf()
         proj = Project.retrieve_project_if_present(WORKING_DIRECTORY, form)
         app = App(conf, logger, form, pars, proj, helpme)
@@ -84,6 +84,7 @@ class App:
         if not current_command:
             if self.complete: return self.complete.complete_commands(self.load_aliases_raw(), self.load_project_aliases_raw())
             if self.help.print: return self.print_general_help()
+
             if self.conf['default_command']:
                 new_args = self.conf['default_command'].split(' ')
                 if len(new_args) != 0: # prevent doing nothing due to empty default command
@@ -93,8 +94,12 @@ class App:
                     self.default_command_load_deja_vu = True
                     sys.argv += new_args
                     return main()
+
             self.logger.warning('No command given')
             return config.USER_ERROR
+        return self.execute_command(current_command)
+
+    def execute_command(self, current_command):
         if not self.parser.may_have([self.argument_groups['PROJECT_COMMANDS'], self.argument_groups['CUSTOM_COMMANDS'], self.argument_groups['CMD_COMMANDS']]):
             self.logger.warning('The argument/command %s was not found', cio.quote(current_command))
             self.logger.info('run "cmd --help" if you are having trouble')
@@ -115,14 +120,19 @@ class App:
             self.argument_groups['OPTIONAL_ARGUMENTS'],
         ]
         self.form.print_str(ArgumentGroup.to_str(main_groups), end='')
-        # additional_str = ''
-        # form.print_str(additional_str) #todo print info including special options (such as --complete)
+        self.form.print_str()
+        additional_str = 'Run "cmd --help <command>" to get help for specific command'
+        self.form.print_str(additional_str)
         return config.SUCCESSFULL_EXECUTION
 
     # == Commands ====================================================================
 
     def cmd_help(self):
         if self.complete: return self.main_command()
+        if self.help.print:
+            self.argument_args['HELP'] # todo
+            self.form.print_str('--help command prints infor')
+            return config.SUCCESSFULL_EXECUTION
         self.help.print = True
         parser.remove_first_argument()
         return self.main_command()

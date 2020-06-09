@@ -2,8 +2,7 @@ import unittest
 import os.path
 import sys
 
-import shcmdmgr
-from shcmdmgr import complete, filemanip, config, args, cio, command, project, process, util, parser, __main__
+from shcmdmgr import complete, filemanip, config, cio, util, parser, __main__
 from shcmdmgr.complete import Complete
 
 class TestCompletion(unittest.TestCase):
@@ -34,7 +33,7 @@ class TestConfig(unittest.TestCase):
         config.get_conf()
 
     def test_logger(self):
-        log = config.get_logger()
+        config.get_logger()
 
     def test_logger_levels(self):
         log = config.get_logger()
@@ -55,7 +54,7 @@ def make_app(arguments):
     logger = config.get_logger()
     form = cio.Formatter(logger)
     helpme = config.Help()
-    pars = parser.Parser(arguments, helpme)
+    pars = parser.Parser(arguments, helpme, form)
     return __main__.App(conf, logger, form, pars, None, helpme)
 
 class TestMainGeneral(unittest.TestCase):
