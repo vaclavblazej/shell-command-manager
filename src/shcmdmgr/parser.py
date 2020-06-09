@@ -2,20 +2,37 @@ import sys
 
 from shcmdmgr import config, cio
 from shcmdmgr.args import ArgumentGroup
+from shcmdmgr.complete import Complete
 
 class Parser:
-    """Provides a common interface to interact with commandline arguments."""
-    def __init__(self, arguments, helpme, form, complete):
+    """
+    Provide a common interface to interact with commandline arguments.
+    It also handles help and completion.
+    """
+    def __init__(self, arguments, helpme, form, logger):
         self.arguments = arguments
         self.help = helpme
         self.form = form
-        self.complete = complete
+        self.complete = None
+        self.logger = logger
+
+    def enable_completion(self):
+        last_arg = sys.argv[-1]
+        sys.argv = sys.argv[:-1]
+        self.complete = Complete(last_arg)
+        self.logger.setLevel(config.QUIET_LEVEL) # fix when set after main() call
 
     def peek(self):
         """Returns the first argument, """
         if len(self.arguments) != 0:
             return self.arguments[0]
         return None
+
+    def get_command(self):
+        if self.complete:
+            return self.complete.commands(self.load_aliases_raw(), self.load_project_aliases_raw())
+        if self.help.print:
+            return self.print_general_help()
 
     def get_rest(self):
         if self.help.print:

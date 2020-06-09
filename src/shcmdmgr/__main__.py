@@ -37,17 +37,11 @@ WORKING_DIRECTORY = os.getcwd()
 
 # == Main Logic ==================================================================
 
-def main(complete = None):
+def main():
     logger = None
     form = None
     try:
-        logger = config.get_logger()
-        form = cio.Formatter(logger)
-        helpme = config.get_help()
-        pars = Parser(sys.argv, helpme, form, complete)
-        conf = config.get_conf()
-        proj = Project.retrieve_project_if_present(WORKING_DIRECTORY, form)
-        app = App(conf, logger, form, pars, proj, helpme)
+        (app, pars, conf, proj, logger) = setup()
         pars.shift() # skip the program invocation
         pars.load_all([app.argument_groups['OUTPUT_ARGUMENTS']])
         logger.setLevel(conf['logging_level'])
@@ -55,7 +49,7 @@ def main(complete = None):
         logger.debug('Script folder: %s', cio.quote(config.SCRIPT_PATH))
         logger.debug('Working directory: %s', cio.quote(WORKING_DIRECTORY))
         logger.debug('Arguments: %s', str(sys.argv))
-        if proj: os.environ[config.PROJECT_ROOT_VAR] = proj.directory # expose variable to subprocesses
+        if proj: os.environ[config.PROJECT_ROOT_VAR] = proj.directory
         pars.load_all([app.argument_groups['OPTIONAL_ARGUMENTS']])
         if conf['scope'] == config.AUTOMATIC_SCOPE:
             if proj: conf['scope'] = config.PROJECT_SCOPE
@@ -68,13 +62,22 @@ def main(complete = None):
         if form: form.print_str()
         if logger: logger.critical('Manually interrupted!')
 
+def setup():
+    logger = config.get_logger()
+    form = cio.Formatter(logger)
+    helpme = config.get_help()
+    pars = Parser(sys.argv, helpme, form, logger)
+    conf = config.get_conf()
+    proj = Project.retrieve_project_if_present(WORKING_DIRECTORY, form)
+    app = App(conf, logger, form, pars, proj, helpme)
+    return (app, pars, conf, proj, logger)
+
 class App:
     def __init__(self, conf, logger, form, pars, proj, helpme):
         self.conf = conf
         self.logger = logger
         self.form = form
         self.parser = pars
-        self.complete = None
         self.default_command_load_deja_vu = False
         self.project = proj
         self.help = helpme
@@ -83,9 +86,6 @@ class App:
     def main_command(self):
         current_command = self.parser.peek()
         if not current_command:
-            if self.complete: return self.complete.commands(self.load_aliases_raw(), self.load_project_aliases_raw())
-            if self.help.print: return self.print_general_help()
-
             if self.conf['default_command']:
                 new_args = shlex.split(self.conf['default_command'])
                 if len(new_args) != 0: # prevent doing nothing due to empty default command
@@ -136,10 +136,10 @@ class App:
     # == Commands ====================================================================
 
     def cmd_help(self):
-        if self.complete: return self.main_command()
         if self.help.print:
             self.argument_args['HELP'] # todo
-            self.form.print_str('--help command prints infor')
+            self.form.print_str('usage: --help <command>')
+            self.form.print_str('prints more defailed information about how to use the <command>')
             return config.SUCCESSFULL_EXECUTION
         self.help.print = True
         self.parser.remove_first_argument()
@@ -268,14 +268,11 @@ class App:
 
     def cmd_complete(self):
         """Return completion words. Is common interface to be used from shell completion scripts."""
-        last_arg = sys.argv[-1]
-        sys.argv = sys.argv[:-1]
         self.parser.remove_first_argument()
-        if self.complete: return main() # todo
-        self.complete = Complete(last_arg)
-        self.logger.setLevel(config.QUIET_LEVEL) # fix when set after main() call
-        main_res = main(complete)
-        for word in self.complete.words:
+        if self.parser.complete: return main()
+        self.parser.enable_completion()
+        main_res = main()
+        for word in self.parser.complete.words:
             print(word, end=' ')
         print()
         return main_res
