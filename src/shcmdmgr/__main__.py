@@ -26,14 +26,14 @@ import shlex
 from os.path import join, exists
 from string import Template
 
-from shcmdmgr import config, filemanip, project, complete, cio, process, parser
-from shcmdmgr.complete import Complete
+from shcmdmgr import config, filemanip, project, complete, cio, process
 from shcmdmgr.command import Command, load_commands
 from shcmdmgr.project import Project
 from shcmdmgr.args import Argument, CommandArgument, ArgumentGroup
 from shcmdmgr.parser import Parser
 
 WORKING_DIRECTORY = os.getcwd()
+DEFAULT_COMMAND_LOAD_DEJA_VU = False
 
 # == Main Logic ==================================================================
 
@@ -65,37 +65,36 @@ def main():
 def setup():
     logger = config.get_logger()
     form = cio.Formatter(logger)
-    helpme = config.get_help()
-    pars = Parser(sys.argv, helpme, form, logger)
+    pars = Parser(sys.argv, form, logger)
     conf = config.get_conf()
     proj = Project.retrieve_project_if_present(WORKING_DIRECTORY, form)
-    app = App(conf, logger, form, pars, proj, helpme)
+    app = App(conf, logger, form, pars, proj)
     return (app, pars, conf, proj, logger)
 
 class App:
-    def __init__(self, conf, logger, form, pars, proj, helpme):
+    def __init__(self, conf, logger, form, pars, proj):
         self.conf = conf
         self.logger = logger
         self.form = form
         self.parser = pars
-        self.default_command_load_deja_vu = False
         self.project = proj
-        self.help = helpme
         self.argument_groups_cache = None
 
     def main_command(self):
         current_command = self.parser.peek()
         if not current_command:
-            if self.conf['default_command']:
-                new_args = shlex.split(self.conf['default_command'])
-                if len(new_args) != 0: # prevent doing nothing due to empty default command
-                    if self.default_command_load_deja_vu: # prevent adding default command multiple times
+            default_command = self.conf['default_command']
+            if default_command:
+                new_args = shlex.split(default_command)
+                if len(new_args) != 0:
+                    global DEFAULT_COMMAND_LOAD_DEJA_VU
+                    if DEFAULT_COMMAND_LOAD_DEJA_VU: # prevent adding default command multiple times
                         self.logger.warning('The default command is invalid, it must include a command argument')
                         return config.USER_ERROR
-                    self.default_command_load_deja_vu = True
+                    DEFAULT_COMMAND_LOAD_DEJA_VU = True
+                    self.logger.debug('Applying defalt arguments {}'.format(new_args))
                     sys.argv += new_args
                     return main()
-
             self.logger.warning('No command given')
             return config.USER_ERROR
         return self.execute_command(current_command)
@@ -136,12 +135,7 @@ class App:
     # == Commands ====================================================================
 
     def cmd_help(self):
-        if self.help.print:
-            self.argument_args['HELP'] # todo
-            self.form.print_str('usage: --help <command>')
-            self.form.print_str('prints more defailed information about how to use the <command>')
-            return config.SUCCESSFULL_EXECUTION
-        self.help.print = True
+        self.parser.enable_help()
         self.parser.remove_first_argument()
         return self.main_command()
 
@@ -168,7 +162,7 @@ class App:
             Argument('--descr', '-d', lambda: print('TODO'), 'few words about the command\'s functionality'),
             Argument('--', None, lambda: print('TODO'), 'command to be saved follows'),
         ]
-        self.parser.load_all([ArgumentGroup('save arguments (missing will be queried)', other_args)], self.help.print)
+        self.parser.load_all([ArgumentGroup('save arguments (missing will be queried)', other_args)])
         arguments = self.parser.get_rest('command to be saved')
         show_edit = False
         if len(arguments) == 0: # supply the last command from history

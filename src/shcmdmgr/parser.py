@@ -3,39 +3,54 @@ import sys
 from shcmdmgr import config, cio
 from shcmdmgr.args import ArgumentGroup
 from shcmdmgr.complete import Complete
+from shcmdmgr.config import Help
 
 class Parser:
     """
     Provide a common interface to interact with commandline arguments.
     It also handles help and completion.
     """
-    def __init__(self, arguments, helpme, form, logger):
+    def __init__(self, arguments, form, logger):
         self.arguments = arguments
-        self.help = helpme
-        self.form = form
         self.complete = None
+        self.form = form
+        self.help = None
         self.logger = logger
+        self.possible_arguments = []
+
+    def enable_help(self):
+        """All commands will print possible arguments and their description."""
+        if self.help:
+            self.form.print_str('usage: --help <command>')
+            self.form.print_str('prints more defailed information about how to use the <command>')
+            sys.exit(config.SUCCESSFULL_EXECUTION)
+        self.help = Help()
 
     def enable_completion(self):
+        """All commands will print list of possible arguments."""
         last_arg = sys.argv[-1]
         sys.argv = sys.argv[:-1]
         self.complete = Complete(last_arg)
         self.logger.setLevel(config.QUIET_LEVEL) # fix when set after main() call
 
     def peek(self):
-        """Returns the first argument, """
+        """Returns the first argument, but doesn't remove it."""
+        res = None
         if len(self.arguments) != 0:
-            return self.arguments[0]
-        return None
+            res = self.arguments[0]
+        self.logger.debug('parser peek {}'.format(cio.quote(res)))
+        return res
 
     def get_command(self):
-        if self.complete:
-            return self.complete.commands(self.load_aliases_raw(), self.load_project_aliases_raw())
-        if self.help.print:
-            return self.print_general_help()
+        # if self.complete:
+        #     return self.complete.commands(self.load_aliases_raw(), self.load_project_aliases_raw())
+        # if self.help.print:
+        #     return self.print_general_help()
+        self.logger.debug('parser command')
 
     def get_rest(self):
-        if self.help.print:
+        """Returns all of the remaining arguments."""
+        if self.help:
             sys.exit(config.SUCCESSFULL_EXECUTION)
         res = self.arguments
         self.arguments = []

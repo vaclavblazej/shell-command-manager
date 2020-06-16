@@ -1,6 +1,3 @@
-'''
-Completion utility class
-'''
 
 from os.path import join
 
@@ -22,6 +19,11 @@ class Complete:
     @words.setter
     def words(self, words):
         self.__words = words
+
+    def add_words(self, new_words):
+        if not self.__words:
+            self.__words = []
+        self.__words += new_words
 
     @staticmethod
     def nothing():
