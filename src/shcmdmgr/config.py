@@ -29,7 +29,12 @@ QUIET_LEVEL = 60
 
 VERSION = '0.1.2-dev0'
 
+logger = None
+
 def get_logger():
+    global logger
+    if logger:
+        return logger
     logging.addLevelName(VERBOSE_LEVEL, 'VERBOSE')
     def verbose(self, message, *args, **kws):
         if self.isEnabledFor(VERBOSE_LEVEL):
@@ -47,10 +52,3 @@ def get_conf():
     conf.update(filemanip.load_json_file(GLOBAL_CONFIG_FILE))
     conf.update(filemanip.load_json_file(LOCAL_CONFIG_FILE))
     return conf
-
-class Help:
-    def __init__(self):
-        self.print = False
-
-def get_help():
-    return Help()

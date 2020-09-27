@@ -82,7 +82,10 @@ class App:
 
     def main_command(self):
         current_command = self.parser.peek()
-        if not current_command:
+        self.logger.debug('Current command {}'.format(current_command))
+        if current_command:
+            return self.execute_command(current_command)
+        else:
             default_command = self.conf['default_command']
             if default_command:
                 new_args = shlex.split(default_command)
@@ -97,7 +100,6 @@ class App:
                     return main()
             self.logger.warning('No command given')
             return config.USER_ERROR
-        return self.execute_command(current_command)
 
     def execute_command(self, current_command):
         if not self.parser.may_have(self.all_commands()):
